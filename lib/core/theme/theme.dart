@@ -33,3 +33,7 @@ class ThemesColors{
   static const Color error = brandOrange; // Reusing brand orange for destructive actions/errors
   static const Color starRating = promoYellow;
 }
+
+class ThemeTextStyle{
+
+}

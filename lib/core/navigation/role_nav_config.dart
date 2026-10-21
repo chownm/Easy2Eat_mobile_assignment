@@ -55,19 +55,19 @@ class RoleNavConfig {
       case UserRole.rider:
         return const [
           NavigationTabItem(
-            label: 'Home',
-            icon: Icons.storefront_outlined,
-            activeIcon: Icons.storefront_rounded,
+            label: 'Delivery',
+            icon: Icons.motorcycle_outlined,
+            activeIcon: Icons.motorcycle_rounded,
           ),
           NavigationTabItem(
-            label: 'Cart',
-            icon: Icons.shopping_bag_outlined,
-            activeIcon: Icons.shopping_bag_rounded,
+            label: 'Maps',
+            icon: Icons.location_on_outlined,
+            activeIcon: Icons.location_on_rounded,
           ),
           NavigationTabItem(
-            label: 'Track',
-            icon: Icons.radar_outlined,
-            activeIcon: Icons.radar_rounded,
+            label: 'Chat',
+            icon: Icons.chat_outlined,
+            activeIcon: Icons.chat_rounded
           ),
           NavigationTabItem(
             label: 'Settings',
