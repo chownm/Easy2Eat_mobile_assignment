@@ -1,26 +1,20 @@
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:easy2eat/features/settings/presentation/settingsTileItem.dart';
 import 'package:flutter/material.dart';
-import 'package:easy2eat/core/theme/theme.dart';
 import 'settingsSectionCard.dart';
 
 import '../../../core/enum/user_role.dart';
 import '../../../shared/widgets/shared_navigation_bar.dart';
 
-class settingPage extends StatefulWidget {
-  const settingPage({super.key});
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
 
-  @override
-  State<settingPage> createState() => _settingPageState();
-}
-
-class _settingPageState extends State<settingPage> {
-  get _currentIndex => 3;
+  int get _currentIndex => 3;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: riderAppBar(title: "Settings"),
+      appBar: const RiderAppBar(title: "Settings"),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -68,8 +62,8 @@ class _settingPageState extends State<settingPage> {
                   ),
                 ],
               ),
-            ]
-          )
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: SharedNavigationBar(
@@ -80,3 +74,6 @@ class _settingPageState extends State<settingPage> {
     );
   }
 }
+
+// Alias for backwards compatibility
+typedef settingPage = SettingsPage;

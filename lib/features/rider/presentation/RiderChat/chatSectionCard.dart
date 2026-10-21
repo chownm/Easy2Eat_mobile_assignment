@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 
 class ChatSectionCard extends StatelessWidget {
   final String? title;
-  final int itemCount;
-  final IndexedWidgetBuilder itemBuilder;
-  final double? height;
+  final List<Widget> children;
 
   const ChatSectionCard({
     super.key,
     this.title,
-    required this.itemCount,
-    required this.itemBuilder,
-    this.height,
+    required this.children,
   });
 
   @override
@@ -21,7 +17,7 @@ class ChatSectionCard extends StatelessWidget {
       children: [
         if (title != null) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
+            padding: const EdgeInsets.only(left: 4, bottom: 8, top: 12),
             child: Text(
               title!.toUpperCase(),
               style: const TextStyle(
@@ -33,16 +29,8 @@ class ChatSectionCard extends StatelessWidget {
             ),
           ),
         ],
-        SizedBox(
-          height: height ?? 450,
-          child: Scrollbar(
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(right: 4, bottom: 12),
-              itemCount: itemCount,
-              itemBuilder: itemBuilder,
-            ),
-          ),
+        Column(
+          children: children,
         ),
       ],
     );
