@@ -1,18 +1,12 @@
-import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/enum/user_role.dart';
 import '../../../../shared/widgets/shared_navigation_bar.dart';
 
-class RiderMapsPage extends StatefulWidget {
+class RiderMapsPage extends StatelessWidget {
   const RiderMapsPage({super.key});
 
-  @override
-  State<RiderMapsPage> createState() => _RiderMapsPageState();
-}
-
-class _RiderMapsPageState extends State<RiderMapsPage> {
   int get _currentIndex => 1;
 
   @override

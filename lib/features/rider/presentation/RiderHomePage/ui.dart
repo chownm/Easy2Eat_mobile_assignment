@@ -6,15 +6,10 @@ import 'package:easy2eat/core/theme/theme.dart';
 import '../../../../core/enum/user_role.dart';
 import 'statusSwitch.dart';
 
-class RiderHomePage extends StatefulWidget {
+class RiderHomePage extends StatelessWidget {
   const RiderHomePage({super.key});
 
-  @override
-  State<RiderHomePage> createState() => _RiderHomePageState();
-}
-
-class _RiderHomePageState extends State<RiderHomePage> {
-  final int _currentIndex = 0;
+  int get _currentIndex => 0;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +36,7 @@ class _RiderHomePageState extends State<RiderHomePage> {
                   ),
                 ),
                 IconButton(
-                  onPressed: (){},
+                  onPressed: () {},
                   icon: const Icon(
                     Icons.refresh,
                     color: ThemesColors.darkCharcoal,

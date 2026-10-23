@@ -1,3 +1,6 @@
+import 'package:easy2eat/features/auth/presentation/login_screen.dart';
+import 'package:easy2eat/features/rider/presentation/RiderDashBoard/ui.dart';
+import 'package:easy2eat/features/settings/presentation/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
@@ -24,59 +27,87 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
         letterSpacing: 0.5,
       ),
       actions: [
-        PopupMenuButton(
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+        PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'profile') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            } else if (value == 'dashboard') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RiderDashBoard()),
+              );
+            } else if (value == 'logout') {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
+              );
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem<String>(
+              value: 'profile',
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () {},
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.logout,
-                              color: ThemesColors.darkCharcoal,
-                              size: 30,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              "Logout",
-                              style: TextStyle(
-                                color: ThemesColors.darkCharcoal,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    Icons.person_outline,
+                    color: ThemesColors.darkCharcoal,
+                    size: 22,
                   ),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () {},
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.person,
-                              color: ThemesColors.darkCharcoal,
-                              size: 30,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              "Profile",
-                              style: TextStyle(
-                                color: ThemesColors.darkCharcoal,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  SizedBox(width: 12),
+                  Text(
+                    "Profile & Settings",
+                    style: TextStyle(
+                      color: ThemesColors.darkCharcoal,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'dashboard',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.dashboard_outlined,
+                    color: ThemesColors.darkCharcoal,
+                    size: 22,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    "Dashboard",
+                    style: TextStyle(
+                      color: ThemesColors.darkCharcoal,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuDivider(),
+            PopupMenuItem<String>(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.logout,
+                    color: Colors.red,
+                    size: 22,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -84,7 +115,7 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
           ],
           icon: const Icon(
             Icons.account_circle_rounded,
-            size: 40,
+            size: 38,
             color: ThemesColors.darkCharcoal,
           ),
         ),
