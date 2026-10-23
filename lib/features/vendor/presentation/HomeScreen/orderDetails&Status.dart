@@ -1,0 +1,203 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
+import 'package:easy2eat/features/vendor/providers/order-provider.dart';
+
+
+class OrderDetailWidget extends ConsumerStatefulWidget {
+  const OrderDetailWidget({super.key});
+
+  @override
+  ConsumerState<OrderDetailWidget> createState() => _OrderDetailWidgetState();
+}
+
+class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final orders = ref.watch(orderListProvider);
+
+    return Column(      // Order Detail UI structure
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Live Order Stream & Status Pipeline',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        if (orders.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: const Text('All caught up! No active orders', style: TextStyle(color: Colors.grey)),
+          ),
+
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return _buildInteractiveOrderCard(context, order);
+          },
+        ),
+      ],
+    );
+  }
+
+  // Widget Setting for Order Status
+  Widget _buildInteractiveOrderCard(BuildContext context, OrderModel order){
+    Color statusColor;
+    String nextStatusText;
+    String nextStatusValue;
+
+    switch (order.status) {
+      case 'pending':
+        statusColor = Colors.orange;
+        nextStatusText = 'Accept & Prepare -->';
+        nextStatusValue = 'preparing';
+        break;
+
+      case 'preparing':
+        statusColor = Colors.blue;
+        nextStatusText = 'Next Almost Done -->';
+        nextStatusValue = 'almost done';
+        break;
+
+      case 'almost done':
+        statusColor = Colors.purpleAccent;
+        nextStatusText = 'Complete Order';
+        nextStatusValue = 'done';
+        break;
+
+      case 'done':
+      default:
+        statusColor = Colors.green;
+        nextStatusText = 'Archived';
+        nextStatusValue = 'done';
+        break;
+    }
+
+    return Container (
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                order.orderID,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14,
+                    color: Colors.black
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  order.status.toUpperCase().replaceAll(',', ' '),
+                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          Text(
+            order.customerName,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          const Divider(height: 1, color: Colors.grey),
+          const SizedBox(height: 10),
+
+          Row (
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.access_time, size: 12, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    order.timeAgo,
+                    style: const TextStyle(
+                        fontSize: 11, color: Colors.grey
+                    ),
+                  ),
+                ],
+              ),
+              if (order.status != 'done')
+                InkWell(
+                  onTap: () {
+                    _advanceOrderStatus(order.orderID, nextStatusValue);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      nextStatusText,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                )
+              else
+                const Text(
+                  'Completed',
+                  style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Method: Loading order Data from riverpod
+  void _advanceOrderStatus(String targetOrderID, String newStatus){
+    final currentOrders = ref.read(orderListProvider);
+
+    final updatedOrders = currentOrders.map((order){
+      if (order.orderID == targetOrderID){
+        return OrderModel(
+          orderID: order.orderID,
+          customerName: order.customerName,
+          orderItems: order.orderItems,
+          status: newStatus,
+          timeAgo: order.timeAgo,
+        );
+      }
+      return order;
+    }).toList();
+
+    ref.read(orderListProvider.notifier).updateOrders(updatedOrders);
+  }
+}
