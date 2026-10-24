@@ -1,4 +1,3 @@
-import 'package:easy2eat/features/rider/presentation/RiderChat/chatTileItem.dart';
 import 'package:easy2eat/features/rider/presentation/RiderDashBoard/DeliveryHistory.dart';
 import 'package:easy2eat/features/rider/presentation/RiderDashBoard/EarningSummary.dart';
 import 'package:easy2eat/features/rider/presentation/RiderDashBoard/RefreshButton.dart';
@@ -14,7 +13,6 @@ class RiderDashBoard extends StatelessWidget {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: ThemesColors.brandOrange,
-        // backward button
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: ThemesColors.darkCharcoal),
           onPressed: () {
@@ -71,24 +69,12 @@ class RiderDashBoard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Expanded(
+
+            // Dynamic Delivery History List
+            const Expanded(
               child: Scrollbar(
-                child: ListView(
-                  shrinkWrap: true,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    Column(
-                      children: [
-                        ChatTileItem(
-                          icon: Icons.storefront_outlined,
-                          title: "Kedai Kopi Makcik",
-                          subtitle: "Order is almost packed",
-                          time: "12:35 PM",
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                  ],
+                child: DeliveryHistoryList(
+                  itemCount: 6,
                 ),
               ),
             ),

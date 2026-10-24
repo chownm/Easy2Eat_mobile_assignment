@@ -1,3 +1,4 @@
+import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/features/rider/presentation/RiderHomePage/orderDetail.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
@@ -53,7 +54,11 @@ class RiderHomePage extends StatelessWidget {
       bottomNavigationBar: SharedNavigationBar(
         currentIndex: _currentIndex,
         role: UserRole.rider,
-        onTap: (int index) {},
+        onTap: (int index) {
+          if (index == 1) Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
+          if (index == 2) Navigator.pushReplacementNamed(context, AppRoutes.riderChat);
+          if (index == 3) Navigator.pushReplacementNamed(context, AppRoutes.settings);
+        },
       ),
     );
   }

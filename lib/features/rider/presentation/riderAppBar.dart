@@ -1,6 +1,4 @@
-import 'package:easy2eat/features/auth/presentation/login_screen.dart';
-import 'package:easy2eat/features/rider/presentation/RiderDashBoard/ui.dart';
-import 'package:easy2eat/features/settings/presentation/ui.dart';
+import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
@@ -30,19 +28,13 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
         PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'profile') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
+              Navigator.pushNamed(context, AppRoutes.settings);
             } else if (value == 'dashboard') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const RiderDashBoard()),
-              );
+              Navigator.pushNamed(context, AppRoutes.riderDashboard);
             } else if (value == 'logout') {
-              Navigator.pushAndRemoveUntil(
+              Navigator.pushNamedAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
+                AppRoutes.login,
                 (route) => false,
               );
             }

@@ -17,7 +17,7 @@ class ChatSectionCard extends StatelessWidget {
       children: [
         if (title != null) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8, top: 12),
+            padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
             child: Text(
               title!.toUpperCase(),
               style: const TextStyle(

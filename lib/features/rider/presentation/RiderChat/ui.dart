@@ -1,3 +1,4 @@
+import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/features/rider/presentation/RiderChat/chatSectionCard.dart';
 import 'package:easy2eat/features/rider/presentation/RiderChat/chatTileItem.dart';
 import 'package:easy2eat/features/rider/presentation/RiderChat/searchMessages.dart';
@@ -41,7 +42,9 @@ class RiderChat extends StatelessWidget {
                         subtitle: "Saya dah sampai depan guard h...",
                         time: "12:43 PM",
                         unreadCount: 1,
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, "/chatWindow");
+                        },
                       ),
                     ],
                   ),
@@ -54,7 +57,11 @@ class RiderChat extends StatelessWidget {
       bottomNavigationBar: SharedNavigationBar(
         currentIndex: _currentIndex,
         role: UserRole.rider,
-        onTap: (int index) {},
+        onTap: (int index) {
+          if (index == 0) Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+          if (index == 1) Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
+          if (index == 3) Navigator.pushReplacementNamed(context, AppRoutes.settings);
+        },
       ),
     );
   }

@@ -10,6 +10,10 @@
 .svn/
 migrate_working_dir/
 
+# Secrets & API Keys
+lib/core/constants/.env
+my_secret_key.json
+
 # IntelliJ / Android Studio project files
 .idea/
 .idea_modules/

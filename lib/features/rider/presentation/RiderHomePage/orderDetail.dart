@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/theme.dart';
 
 class OrderDetail extends StatefulWidget {
-  const OrderDetail({super.key});
+  final int itemCount;
+
+  const OrderDetail({
+    super.key,
+    this.itemCount = 1,
+  });
 
   @override
   State<OrderDetail> createState() => _OrderDetailState();
@@ -50,9 +55,9 @@ class _OrderDetailState extends State<OrderDetail> {
   @override
   Widget build(BuildContext context) {
     return Scrollbar(
-      child:ListView.builder(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: 4,
+        itemCount: widget.itemCount, // Controlled dynamically via widget.itemCount
         itemBuilder: (context, index) {
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -201,7 +206,7 @@ class _OrderDetailState extends State<OrderDetail> {
                     ),
                   ],
                 ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // Accept and Decline Button
                 Row(
@@ -262,7 +267,7 @@ class _OrderDetailState extends State<OrderDetail> {
             ),
           );
         },
-      )
+      ),
     );
   }
 }
