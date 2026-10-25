@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
-import 'package:easy2eat/features/vendor/providers/order-provider.dart';
+import 'package:easy2eat/features/vendor/providers/Notifiers/order-provider.dart';
 
 
 class OrderDetailWidget extends ConsumerStatefulWidget {

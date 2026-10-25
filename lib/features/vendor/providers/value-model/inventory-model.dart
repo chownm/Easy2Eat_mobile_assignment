@@ -4,7 +4,6 @@ class InventoryModel {
   final double price;
   final int availableStock;
   final String inventoryStatus;
-  final String category;
 
   InventoryModel({
     required this.itemID,
@@ -12,6 +11,21 @@ class InventoryModel {
     required this.price,
     required this.availableStock,
     required this.inventoryStatus,
-    required this.category,
 });
+
+  InventoryModel copyWith ({
+    String? itemID,
+    String? itemName,
+    double? price,
+    int? availableStock,
+    String? inventoryStatus,
+  }) {
+    return InventoryModel(
+        itemID: itemID ?? this.itemID,
+        itemName: itemName ?? this.itemName,
+        price: price ?? this.price,
+        availableStock: availableStock ?? this.availableStock,
+        inventoryStatus: inventoryStatus ?? this.inventoryStatus,
+    );
+  }
 }

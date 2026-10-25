@@ -36,7 +36,7 @@ class RoleNavConfig {
             activeIcon: Icons.storefront_rounded,
           ),
           NavigationTabItem(
-            label: 'Cart',
+            label: 'Stock & Inventory',
             icon: Icons.shopping_bag_outlined,
             activeIcon: Icons.shopping_bag_rounded,
           ),
