@@ -4,7 +4,6 @@ import 'package:easy2eat/features/rider/presentation/RiderChat/chatTileItem.dart
 import 'package:easy2eat/features/rider/presentation/RiderChat/searchMessages.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
@@ -19,7 +18,7 @@ class RiderChat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: RiderAppBar(title: 'riderChatPage'.tr()),
+      appBar: const RiderAppBar(title: "Rider Chat Page"),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: ListView(
@@ -35,7 +34,7 @@ class RiderChat extends StatelessWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   ChatSectionCard(
-                    title: 'today'.tr(),
+                    title: "TODAY",
                     children: ChatListState.activeChats.map((chat) {
                       return ChatTileItem(
                         icon: chat.icon,

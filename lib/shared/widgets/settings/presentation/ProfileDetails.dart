@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 class ProfileDetailsPage extends StatefulWidget {
   const ProfileDetailsPage({super.key});
@@ -108,7 +107,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: RiderSubAppBar(title: 'profileDetails'.tr()),
+      appBar: const RiderSubAppBar(title: "Profile Details"),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -149,7 +148,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
 
               // Name TextFormField
               _buildTextFormField(
-                label: 'fullName'.tr(),
+                label: "Full Name",
                 controller: _nameController,
                 icon: Icons.person_outline,
                 validator: (value) {
@@ -163,7 +162,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
 
               // Email TextFormField
               _buildTextFormField(
-                label: 'emailAddress'.tr(),
+                label: "Email Address",
                 controller: _emailController,
                 icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
@@ -181,7 +180,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
 
               // Phone Number TextFormField
               _buildTextFormField(
-                label: 'phoneNumber'.tr(),
+                label: "Phone Number",
                 controller: _phoneController,
                 icon: Icons.phone_outlined,
                 keyboardType: TextInputType.phone,
@@ -199,7 +198,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
 
               // Vehicle Information TextFormField
               _buildTextFormField(
-                label: 'vehicleInfo'.tr(),
+                label: "Vehicle Information",
                 controller: _vehicleController,
                 icon: Icons.motorcycle_outlined,
                 validator: (value) {
@@ -227,14 +226,14 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                     // Validate form before saving
                     if (_formKey.currentState!.validate()) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('profileUpdated'.tr())),
+                        const SnackBar(content: Text('Profile updated successfully!')),
                       );
                       Navigator.pop(context);
                     }
                   },
-                  child: Text(
-                    'saveChanges'.tr(),
-                    style: const TextStyle(
+                  child: const Text(
+                    "Save Changes",
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),

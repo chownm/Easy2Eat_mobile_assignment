@@ -4,7 +4,6 @@ import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
-import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/enum/user_role.dart';
 import 'statusSwitch.dart';
 
@@ -25,7 +24,7 @@ class _RiderHomePageState extends State<RiderHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: RiderAppBar(title: 'riderDeliveryPage'.tr()),
+      appBar: const RiderAppBar(title: "Rider Delivery Page"),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -37,9 +36,9 @@ class _RiderHomePageState extends State<RiderHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'orderIncoming'.tr(),
-                  style: const TextStyle(
+                const Text(
+                  "Order Incoming",
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: ThemesColors.darkCharcoal,
