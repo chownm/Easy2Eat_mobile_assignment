@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/features/customer/models/merchant_model.dart';
 import 'package:easy2eat/core/theme/theme.dart';
+import 'package:easy2eat/features/customer/cart_checkout/widgets/item_customization_sheet.dart';
 
 // Component 5: Merchant Feed Card
 class CustomerMerchantFeedCard extends StatelessWidget {
@@ -258,69 +259,35 @@ class CustomerMerchantFeedCard extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // Row 4: Two side by side Action Button
-                  Row(
-                    children: <Widget>[
-                      // Button 1: Customize
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            // Hook for item customization
+                  // Row 4: Add to cart button
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (BuildContext sheetContext) {
+                          return ItemCustomizationSheet(merchant: merchant);
                           },
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 42),
-                            foregroundColor: ThemesColors.darkCharcoal,
-                            side: BorderSide(
-                              color: ThemesColors.darkCharcoal.withValues(
-                                  alpha: 0.25
-                              ),
-                              width: 1.2,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Customize',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add_shopping_cart_rounded),
+                    label: const Text(
+                      'Add to Cart',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 10),
-
-                      // Button 2: Add to Cart
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // Hook for adding item to Cart
-                          },
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(0, 42),
-                            elevation: 0,
-                            backgroundColor: ThemesColors.brandOrange,
-                            foregroundColor:
-                            ThemesColors.appSurface,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Add to Cart',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      )
-                    ],
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44),
+                      elevation: 0,
+                      backgroundColor: ThemesColors.brandOrange,
+                      foregroundColor: ThemesColors.appSurface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ],
               ),
