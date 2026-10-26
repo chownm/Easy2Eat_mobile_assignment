@@ -2,20 +2,29 @@ import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/features/rider/presentation/RiderMapsPage/Map.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
+import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
 import '../../../../shared/widgets/shared_navigation_bar.dart';
 
 class RiderMapsPage extends StatelessWidget {
-  const RiderMapsPage({super.key});
+  final String? deliveryNumber;
+
+  const RiderMapsPage({
+    super.key,
+    this.deliveryNumber,
+  });
 
   int get _currentIndex => 1;
 
   @override
   Widget build(BuildContext context) {
+    final String activeNum = deliveryNumber ?? ActiveDeliveryState.currentDeliveryNumber;
+
     return Scaffold(
-      appBar: const RiderAppBar(title: "Rider Maps Page"),
-      body: GeoapifyMapWidget(deliveryNumber: "Delivery Number 1234", name: "Chow Booh Hwa"),
+      appBar: RiderAppBar(title: 'riderMapsPage'.tr()),
+      body: GeoapifyMapWidget(deliveryNumber: activeNum, name: "Chow Booh Hwa"),
       bottomNavigationBar: SharedNavigationBar(
         currentIndex: _currentIndex,
         role: UserRole.rider,

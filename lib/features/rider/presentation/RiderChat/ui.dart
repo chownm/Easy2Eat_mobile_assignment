@@ -4,7 +4,9 @@ import 'package:easy2eat/features/rider/presentation/RiderChat/chatTileItem.dart
 import 'package:easy2eat/features/rider/presentation/RiderChat/searchMessages.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
+import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
 import '../../../../shared/widgets/shared_navigation_bar.dart';
 
@@ -17,7 +19,7 @@ class RiderChat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: const RiderAppBar(title: "Rider Chat Page"),
+      appBar: RiderAppBar(title: 'riderChatPage'.tr()),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: ListView(
@@ -33,20 +35,25 @@ class RiderChat extends StatelessWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   ChatSectionCard(
-                    title: "TODAY",
-                    children: [
-                      ChatTileItem(
-                        initials: "AS",
+                    title: 'today'.tr(),
+                    children: ChatListState.activeChats.map((chat) {
+                      return ChatTileItem(
+                        icon: chat.icon,
+                        initials: chat.icon == null ? chat.initials : null,
                         hasStatusDot: true,
-                        title: "Alex Sterling • Order #0001",
-                        subtitle: "Saya dah sampai depan guard h...",
-                        time: "12:43 PM",
+                        title: chat.title,
+                        subtitle: chat.subtitle,
+                        time: chat.time,
                         unreadCount: 1,
                         onTap: () {
-                          Navigator.pushNamed(context, "/chatWindow");
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.chatWindow,
+                            arguments: chat.title,
+                          );
                         },
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
                 ],
               ),

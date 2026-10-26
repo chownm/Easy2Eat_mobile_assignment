@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class RiderStatus extends StatefulWidget {
   const RiderStatus({super.key});
@@ -30,13 +31,13 @@ class _RiderStatusState extends State<RiderStatus> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Left side: Bullet point + Text
-          const Row(
+          Row(
             children: [
-              Icon(Icons.circle, size: 10, color: Colors.black),
-              SizedBox(width: 8),
+              const Icon(Icons.circle, size: 10, color: Colors.black),
+              const SizedBox(width: 8),
               Text(
-                "Rider Status",
-                style: TextStyle(
+                'riderStatus'.tr(),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: ThemesColors.darkCharcoal,
@@ -74,7 +75,7 @@ class _RiderStatusState extends State<RiderStatus> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      "Online",
+                      'online'.tr(),
                       style: TextStyle(
                         color: _selectedToggleIndex == 0
                             ? Colors.white
@@ -106,7 +107,7 @@ class _RiderStatusState extends State<RiderStatus> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      "Offline",
+                      'offline'.tr(),
                       style: TextStyle(
                         color: _selectedToggleIndex == 1
                             ? Colors.white

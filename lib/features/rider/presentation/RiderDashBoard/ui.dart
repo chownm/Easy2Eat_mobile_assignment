@@ -1,6 +1,7 @@
 import 'package:easy2eat/features/rider/presentation/RiderDashBoard/DeliveryHistory.dart';
 import 'package:easy2eat/features/rider/presentation/RiderDashBoard/EarningSummary.dart';
 import 'package:easy2eat/features/rider/presentation/RiderDashBoard/RefreshButton.dart';
+import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
@@ -11,24 +12,7 @@ class RiderDashBoard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: ThemesColors.brandOrange,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ThemesColors.darkCharcoal),
-          onPressed: () {
-            Navigator.maybePop(context);
-          },
-          iconSize: 28,
-        ),
-        title: const Text(
-          'Rider Dashboard',
-          style: TextStyle(
-            color: ThemesColors.darkCharcoal,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        elevation: 0,
-      ),
+      appBar: const RiderSubAppBar(title: "Rider Dashboard"),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
         child: Column(

@@ -4,11 +4,20 @@ import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../../../core/enum/user_role.dart';
 import 'statusSwitch.dart';
 
-class RiderHomePage extends StatelessWidget {
+class RiderHomePage extends StatefulWidget {
   const RiderHomePage({super.key});
+
+  @override
+  State<RiderHomePage> createState() => _RiderHomePageState();
+}
+
+class _RiderHomePageState extends State<RiderHomePage> {
+  final GlobalKey<OrderDetailState> _orderDetailKey =
+  GlobalKey<OrderDetailState>();
 
   int get _currentIndex => 0;
 
@@ -16,7 +25,7 @@ class RiderHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: const RiderAppBar(title: "Rider Delivery Page"),
+      appBar: RiderAppBar(title: 'riderDeliveryPage'.tr()),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -28,16 +37,18 @@ class RiderHomePage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Order Incoming",
-                  style: TextStyle(
+                Text(
+                  'orderIncoming'.tr(),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: ThemesColors.darkCharcoal,
                   ),
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    _orderDetailKey.currentState?.resetOrders();
+                  },
                   icon: const Icon(
                     Icons.refresh,
                     color: ThemesColors.darkCharcoal,
@@ -47,7 +58,7 @@ class RiderHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             // Scrollable Order List
-            const Expanded(child: orderDetail()),
+            Expanded(child: orderDetail(key: _orderDetailKey)),
           ],
         ),
       ),
@@ -55,9 +66,15 @@ class RiderHomePage extends StatelessWidget {
         currentIndex: _currentIndex,
         role: UserRole.rider,
         onTap: (int index) {
-          if (index == 1) Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
-          if (index == 2) Navigator.pushReplacementNamed(context, AppRoutes.riderChat);
-          if (index == 3) Navigator.pushReplacementNamed(context, AppRoutes.settings);
+          if (index == 1) {
+            Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
+          }
+          if (index == 2) {
+            Navigator.pushReplacementNamed(context, AppRoutes.riderChat);
+          }
+          if (index == 3) {
+            Navigator.pushReplacementNamed(context, AppRoutes.settings);
+          }
         },
       ),
     );

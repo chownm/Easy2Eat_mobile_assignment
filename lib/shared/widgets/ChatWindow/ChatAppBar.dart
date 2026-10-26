@@ -48,7 +48,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ? const Icon(Icons.person, color: ThemesColors.darkCharcoal, size: 22)
                 : null,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,20 +56,20 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               children: [
                 Text(
                   title,
-                  maxLines: 1,
+                  maxLines: 2, // Expand up to 2 lines for long names before ...
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: ThemesColors.darkCharcoal,
                   ),
                 ),
                 if (subtitle != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle!,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: ThemesColors.darkCharcoal.withValues(alpha: 0.7),
                     ),
@@ -84,21 +84,21 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       // Action Buttons (Call & Info)
       actions: [
         IconButton(
-          icon: const Icon(Icons.language, color: ThemesColors.darkCharcoal),
-          onPressed: () {},
-          iconSize: 24,
-        ),
-        IconButton(
           icon: const Icon(Icons.phone_outlined, color: ThemesColors.darkCharcoal),
           onPressed: () {},
-          iconSize: 24,
+          iconSize: 22,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
         ),
+        const SizedBox(width: 12),
         IconButton(
           icon: const Icon(Icons.info_outline, color: ThemesColors.darkCharcoal),
           onPressed: () {},
-          iconSize: 24,
+          iconSize: 22,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
       ],
     );
   }

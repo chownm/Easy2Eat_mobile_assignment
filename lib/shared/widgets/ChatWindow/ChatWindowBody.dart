@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
 
-class ChatWindowBody extends StatefulWidget {
-  final int itemCount;
-  const ChatWindowBody({super.key, this.itemCount = 1});
+class ChatMessageModel {
+  final String message;
+  final bool isSender;
+  final String time;
+  final String? translation;
+  final String? status;
 
-  @override
-  State<ChatWindowBody> createState() => _ChatWindowBodyState();
+  ChatMessageModel({
+    required this.message,
+    required this.isSender,
+    required this.time,
+    this.translation,
+    this.status,
+  });
 }
 
-class _ChatWindowBodyState extends State<ChatWindowBody> {
+class ChatWindowBody extends StatelessWidget {
+  final List<ChatMessageModel> messages;
+
+  const ChatWindowBody({
+    super.key,
+    required this.messages,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Scrollbar(
       child: ListView.builder(
-        itemCount: widget.itemCount,
+        itemCount: messages.length,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
         itemBuilder: (context, index) {
-          return const Column(
-            children: [
-              ChatTextBubble(
-                isSender: true,
-                message: 'Saya dah sampai depan guard house lobby, abang.',
-                time: '12:42 PM',
-                status: 'Read',
-              ),
-              SizedBox(height: 12),
-              ChatTextBubble(
-                isSender: false,
-                message: "Okay I'm coming down now! Thanks!",
-                translation:
-                'Translation: "Saya dah sampai depan guard house lobby, abang."',
-                time: '12:45 PM',
-              ),
-            ],
+          final msg = messages[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: ChatTextBubble(
+              isSender: msg.isSender,
+              message: msg.message,
+              translation: msg.translation,
+              time: msg.time,
+              status: msg.status,
+            ),
           );
         },
       ),

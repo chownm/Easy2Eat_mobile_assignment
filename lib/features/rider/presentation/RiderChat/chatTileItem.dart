@@ -131,11 +131,12 @@ class ChatTileItem extends StatelessWidget {
         leading: avatarWidget,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Text(
                 title,
-                maxLines: 1,
+                maxLines: 2, // Expands up to 2 lines for full name before ...
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 15,
@@ -144,7 +145,8 @@ class ChatTileItem extends StatelessWidget {
                 ),
               ),
             ),
-            if (time != null)
+            if (time != null) ...[
+              const SizedBox(width: 8),
               Text(
                 time!,
                 style: TextStyle(
@@ -153,6 +155,7 @@ class ChatTileItem extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+            ],
           ],
         ),
         subtitle: subtitle != null

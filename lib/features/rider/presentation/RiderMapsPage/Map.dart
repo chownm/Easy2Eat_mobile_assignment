@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
+import 'package:easy2eat/core/constants/active_delivery.dart';
 import 'package:easy2eat/services/maps/map_api_service.dart';
 
 class GeoapifyMapWidget extends StatefulWidget {
@@ -12,7 +13,7 @@ class GeoapifyMapWidget extends StatefulWidget {
 
   GeoapifyMapWidget({
     super.key,
-    this.deliveryNumber = "Delivery Number 1234",
+    this.deliveryNumber = "Delivery #1234",
     this.name = "Chow Booh Hwa",
   });
 
@@ -23,15 +24,13 @@ class GeoapifyMapWidget extends StatefulWidget {
 class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
   final MapController _mapController = MapController();
 
-  static const LatLng _customerLocation = LatLng(
-    3.1500,
-    101.7000,
-  ); // Customer location
+  static const LatLng _vendorLocation = LatLng(3.1400, 101.6900); // Vendor Store
+  static const LatLng _customerLocation = LatLng(3.1500, 101.7000); // Customer Drop Off
 
   String _destinationAddress = "Fetching delivery address...";
   String _routeInfo = "Tap locate button to calculate route";
 
-  LatLng? _currentPosition; // Null initially
+  LatLng? _currentPosition;
   List<LatLng> _routePoints = [];
 
   bool _showDeliveryCard = true;
@@ -42,14 +41,22 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
     _loadDestinationAddress();
   }
 
+  LatLng get _activeDestination => ActiveDeliveryState.isVendorQrScanned
+      ? _customerLocation
+      : _vendorLocation;
+
   Future<void> _loadDestinationAddress() async {
+    final target = _activeDestination;
     final address = await MapApiService.getAddressFromCoordinates(
-      _customerLocation.latitude,
-      _customerLocation.longitude,
+      target.latitude,
+      target.longitude,
     );
     if (mounted) {
       setState(() {
-        _destinationAddress = address ?? "Fetching...";
+        _destinationAddress = address ??
+            (ActiveDeliveryState.isVendorQrScanned
+                ? "Drop Off: Jalan Tun"
+                : "Pickup: Kuala Lumpur Store");
       });
     }
   }
@@ -106,11 +113,12 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
   }
 
   Future<void> _loadRouteInfo(LatLng startPos) async {
+    final target = _activeDestination;
     final route = await MapApiService.getDeliveryRoute(
       startLat: startPos.latitude,
       startLng: startPos.longitude,
-      endLat: _customerLocation.latitude,
-      endLng: _customerLocation.longitude,
+      endLat: target.latitude,
+      endLng: target.longitude,
     );
 
     if (mounted) {
@@ -121,7 +129,7 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
           _routePoints = route.routePoints;
         } else {
           _routeInfo = "3.2 km • 12 mins away";
-          _routePoints = [startPos, _customerLocation];
+          _routePoints = [startPos, target];
         }
       });
     }
@@ -130,14 +138,16 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
   @override
   Widget build(BuildContext context) {
     final String apiKey = MapApiService.geoapifyApiKey;
+    final bool isHeadingToCustomer = ActiveDeliveryState.isVendorQrScanned;
+    final LatLng destinationPoint = _activeDestination;
 
     return Stack(
       children: [
         // Geoapify Map Tiles via FlutterMap
         FlutterMap(
           mapController: _mapController,
-          options: const MapOptions(
-            initialCenter: _customerLocation,
+          options: MapOptions(
+            initialCenter: destinationPoint,
             initialZoom: 14.0,
           ),
           children: [
@@ -160,14 +170,26 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                 ],
               ),
 
-            // Markers Layer for Customer and Live Rider
+            // Markers Layer: Turns from Vendor Store icon to Customer Location Pin!
             MarkerLayer(
               markers: [
-                const Marker(
-                  point: _customerLocation,
+                Marker(
+                  point: destinationPoint,
                   width: 50,
                   height: 50,
-                  child: Icon(Icons.location_on, color: Colors.red, size: 38),
+                  child: isHeadingToCustomer
+                      ? const Icon(Icons.location_on, color: Colors.red, size: 38)
+                      : Container(
+                          decoration: const BoxDecoration(
+                            color: ThemesColors.brandOrange,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.storefront_outlined,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
                 ),
                 if (_currentPosition != null)
                   Marker(
@@ -243,17 +265,61 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Row: Delivery Number & Close Button
+                  // Top Row: Delivery Number & Phase Badge & Close Button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        widget.deliveryNumber,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: ThemesColors.darkCharcoal,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            widget.deliveryNumber,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: ThemesColors.darkCharcoal,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Dynamic Status Badge: Changes character from Vendor to Customer!
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isHeadingToCustomer
+                                  ? ThemesColors.success.withValues(alpha: 0.15)
+                                  : ThemesColors.brandOrange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isHeadingToCustomer
+                                      ? Icons.person_pin_circle
+                                      : Icons.storefront,
+                                  size: 14,
+                                  color: isHeadingToCustomer
+                                      ? ThemesColors.success
+                                      : ThemesColors.brandOrange,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isHeadingToCustomer
+                                      ? "GOING TO CUSTOMER"
+                                      : "GOING TO VENDOR",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isHeadingToCustomer
+                                        ? ThemesColors.success
+                                        : ThemesColors.brandOrange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),
@@ -296,37 +362,84 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Action Button: Chat With Customer
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ThemesColors.darkCharcoal,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  // Action Buttons: Chat With Vendor & Chat With Customer
+                  Row(
+                    children: [
+                      // Chat With Vendor Button
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: ThemesColors.darkCharcoal,
+                            side: const BorderSide(
+                              color: ThemesColors.darkCharcoal,
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            final chatTitle = "Vendor ${widget.deliveryNumber}";
+                            ChatListState.startOrOpenChat(chatTitle, context);
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.chatWindow,
+                              arguments: chatTitle,
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.storefront_outlined,
+                            color: ThemesColors.darkCharcoal,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            "Chat Vendor",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.chatWindow,
-                          arguments: widget.name,
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        color: Colors.white,
-                      ),
-                      label: Text(
-                        "Chat With ${widget.name}",
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(width: 10),
+
+                      // Chat With Customer Button
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ThemesColors.darkCharcoal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            final chatTitle = "Customer ${widget.deliveryNumber}";
+                            ChatListState.startOrOpenChat(chatTitle, context);
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.chatWindow,
+                              arguments: chatTitle,
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            "Chat Customer",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
