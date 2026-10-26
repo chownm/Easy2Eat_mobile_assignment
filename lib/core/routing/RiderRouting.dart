@@ -8,7 +8,6 @@ import '../../features/rider/presentation/RiderDashBoard/ui.dart';
 import '../../shared/widgets/ChatWindow/ui.dart';
 import '../../shared/widgets/settings/presentation/ui.dart';
 import '../../shared/widgets/settings/presentation/ProfileDetails.dart';
-import '../../shared/widgets/settings/presentation/Internationalize.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -19,7 +18,6 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String chatWindow = '/chatWindow';
   static const String profileDetails = '/profileDetails';
-  static const String internationalize = '/internationalize';
 }
 
 class AppRouter {
@@ -43,8 +41,6 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const SettingsPage());
       case AppRoutes.profileDetails:
         return MaterialPageRoute(builder: (_) => const ProfileDetailsPage());
-      case AppRoutes.internationalize:
-        return MaterialPageRoute(builder: (_) => const InternationalizePage());
       case AppRoutes.chatWindow:
         final args = settings.arguments;
         final String chatTitle = (args is String && args.isNotEmpty) ? args : 'Chat';

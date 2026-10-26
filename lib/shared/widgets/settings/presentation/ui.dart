@@ -5,7 +5,6 @@ import 'package:easy2eat/shared/widgets/settings/presentation/settingsSectionCar
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/enum/user_role.dart';
 import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -15,7 +14,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: RiderAppBar(title: 'settings'.tr()),
+      appBar: const RiderAppBar(title: "Settings"),
       body: Center(
           child: Scrollbar(
               child: ListView(
@@ -26,44 +25,32 @@ class SettingsPage extends StatelessWidget {
                       child: Column(
                         children: [
                           SettingsSectionCard(
-                            title: 'accountAndSecurity'.tr(),
+                            title: 'Account & Security',
                             children: [
                               SettingsTileItem(
                                 icon: Icons.person_outline,
-                                title: 'profileDetails'.tr(),
-                                subtitle: 'profileDetailsSubtitle'.tr(),
+                                title: 'Profile Details',
+                                subtitle: 'Name, phone number, and email',
                                 onTap: () {
                                   Navigator.pushNamed(context, AppRoutes.profileDetails);
                                 },
                               ),
                               SettingsTileItem(
                                 icon: Icons.lock_outline,
-                                title: 'passwordAndSecurity'.tr(),
-                                subtitle: 'passwordAndSecuritySubtitle'.tr(),
+                                title: 'Password & Security',
+                                subtitle: 'Manage password and authentication',
                                 onTap: () {},
                               ),
                             ],
                           ),
                           SettingsSectionCard(
-                            title: 'supportAndTerm'.tr(),
+                            title: 'Support & Term',
                             children: [
                               SettingsTileItem(
                                 icon: Icons.question_answer,
-                                title: 'helpCenterAndSupport'.tr(),
-                                subtitle: 'helpCenterSubtitle'.tr(),
+                                title: 'Help Center & Support',
+                                subtitle: 'Live chat, FAQs, and contact us',
                                 onTap: () {},
-                              ),
-                            ],
-                          ),
-                          SettingsSectionCard(
-                            title: 'language'.tr(),
-                            children: [
-                              SettingsTileItem(
-                                icon: Icons.language,
-                                title: 'preferredLanguage'.tr(),
-                                onTap: () {
-                                  Navigator.pushNamed(context, AppRoutes.internationalize);
-                                },
                               ),
                             ],
                           ),
