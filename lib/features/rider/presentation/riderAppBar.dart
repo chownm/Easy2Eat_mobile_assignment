@@ -1,14 +1,12 @@
 import 'package:easy2eat/core/routing/RiderRouting.dart';
+import 'package:easy2eat/features/rider/presentation/QrScan/QrScan.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
 class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
 
-  const RiderAppBar({
-    super.key,
-    required this.title,
-  });
+  const RiderAppBar({super.key, required this.title});
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -25,6 +23,18 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
         letterSpacing: 0.5,
       ),
       actions: [
+        //qr button
+        IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const QrCodeScan()
+                )
+              );
+            },
+            icon: Icon(Icons.qr_code_scanner)
+        ),
+        //profile Button
         PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'profile') {
@@ -87,11 +97,7 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 'logout',
               child: Row(
                 children: [
-                  Icon(
-                    Icons.logout,
-                    color: Colors.red,
-                    size: 22,
-                  ),
+                  Icon(Icons.logout, color: Colors.red, size: 22),
                   SizedBox(width: 12),
                   Text(
                     "Logout",

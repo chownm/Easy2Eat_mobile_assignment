@@ -2,14 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
-import 'geoapify_response.dart';
+import '../../data/models/map/Response/geoapify_response.dart';
 import 'map_retrofit_client.dart';
 
 class RouteInfo {
   final double distanceKm;
   final double durationMinutes;
   final List<LatLng> routePoints;
-
   const RouteInfo({
     required this.distanceKm,
     required this.durationMinutes,

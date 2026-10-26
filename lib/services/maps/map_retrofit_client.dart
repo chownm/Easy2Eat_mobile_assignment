@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
-import 'geoapify_response.dart';
-
+import 'package:easy2eat/data/models/map/Response/geoapify_response.dart';
 part 'map_retrofit_client.g.dart';
 
 @RestApi(baseUrl: "https://api.geoapify.com/v1")

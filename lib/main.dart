@@ -1,11 +1,12 @@
-import 'package:easy2eat/features/rider/presentation/RiderChat/ui.dart';
-import 'package:easy2eat/features/rider/presentation/RiderDashBoard/ui.dart';
+import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/features/rider/presentation/RiderHomePage/ui.dart';
-import 'package:easy2eat/features/rider/presentation/RiderMapsPage/ui.dart';
-import 'package:easy2eat/features/settings/presentation/ui.dart';
+import 'package:easy2eat/shared/widgets/ChatWindow/ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: "lib/core/constants/.env"); // Loads .env
   runApp(const MyApp());
 }
 
@@ -17,6 +18,7 @@ class MyApp extends StatelessWidget {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
       home: RiderHomePage(),
+      onGenerateRoute: AppRouter.generateRoute,
     );
   }
 }
