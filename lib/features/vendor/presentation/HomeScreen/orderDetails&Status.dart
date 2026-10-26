@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
 import 'package:easy2eat/features/vendor/providers/Notifiers/order-provider.dart';
-
+import 'package:easy2eat/features/vendor/presentation/QRScreen/ui.dart';
+import 'package:easy2eat/features/vendor/providers/Notifiers/qr-provider.dart';
 
 class OrderDetailWidget extends ConsumerStatefulWidget {
   const OrderDetailWidget({super.key});
@@ -101,12 +102,50 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                order.orderID,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14,
-                    color: Colors.black
-                ),
+              Row(
+                children: [
+                  Text(
+                    order.orderID,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14,
+                        color: Colors.black
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Click to generate and show QR code dialog
+                  InkWell(
+                    onTap: () {
+                      ref.read(selectedOrderForQrProvider.notifier).state = order;
+                      showDialog(
+                        context: context,
+                        builder: (context) => const Dialog(
+                          backgroundColor: Colors.transparent,
+                          child: OrderQrDialogWidget(),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_2, size: 15, color: Colors.black87),
+                          SizedBox(width: 3),
+                          Text(
+                            'QR',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
