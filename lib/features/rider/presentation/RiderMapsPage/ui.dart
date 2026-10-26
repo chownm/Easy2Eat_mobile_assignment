@@ -2,6 +2,7 @@ import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/features/rider/presentation/RiderMapsPage/Map.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
@@ -22,7 +23,7 @@ class RiderMapsPage extends StatelessWidget {
     final String activeNum = deliveryNumber ?? ActiveDeliveryState.currentDeliveryNumber;
 
     return Scaffold(
-      appBar: const RiderAppBar(title: "Rider Maps Page"),
+      appBar: RiderAppBar(title: 'riderMapsPage'.tr()),
       body: GeoapifyMapWidget(deliveryNumber: activeNum, name: "Chow Booh Hwa"),
       bottomNavigationBar: SharedNavigationBar(
         currentIndex: _currentIndex,
