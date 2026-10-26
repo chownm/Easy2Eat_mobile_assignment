@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "719716235645",
+    "firebase_url": "https://mae-backend-project-lhm-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "mae-backend-project-lhm",
+    "storage_bucket": "mae-backend-project-lhm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719716235645:android:bd668a747ced4ad0aff414",
+        "android_client_info": {
+          "package_name": "com.example.easy2eat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHiiN9bUX7tQd03RuU6rH38ep8kEZ1GpU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

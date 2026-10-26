@@ -2,7 +2,7 @@ import 'package:easy2eat/core/enum/user_role.dart';
 import 'package:easy2eat/features/customer/models/merchant_model.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
-import 'package:easy2eat/features/customer/home/widgets/home_top_bar.dart';
+import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
 import 'package:easy2eat/features/customer/home/widgets/home_search_box.dart';
 import 'package:easy2eat/features/customer/home/widgets/category_filter_bar.dart';
 import 'package:easy2eat/features/customer/home/widgets/feed_section_header.dart';
@@ -11,11 +11,6 @@ import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
 
 class CustomerHomeScreen extends StatelessWidget {
   const CustomerHomeScreen({super.key});
-  final int _currentIndex = 0;
-
-  final List<Widget> _pages = const [
-
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -27,19 +22,12 @@ class CustomerHomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           // Top Bar
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: CustomerTopAppBar(
-            title: 'Easy2Eat • C180 / Traders Sq',
-          ),
+        const SharedCustomerTopBar(
+          title: 'Easy2Eat • C180 / Traders Sq',
+          subtitle: 'Hyper-Local <1km Unstacked Dispatch Active',
+          showPulseIndicator: true,
+          showProfileButton: true,
         ),
-
-        // Thin horizontal divider under the Top Bar
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: ThemesColors.darkCharcoal.withValues(alpha: 0.08),
-          ),
 
         const SizedBox(height: 14),
 
@@ -86,16 +74,7 @@ class CustomerHomeScreen extends StatelessWidget {
               }
             ),
           )
-
-
       ],),
-      ),
-      // Bottom Navigation Bar
-      bottomNavigationBar: SharedNavigationBar(
-        currentIndex: _currentIndex,
-        role: UserRole.customer,
-        onTap: (int index) {
-        },
       ),
     );
   }
