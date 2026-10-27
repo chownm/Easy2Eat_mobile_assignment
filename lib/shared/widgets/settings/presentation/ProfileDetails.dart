@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
+import 'package:easy2eat/services/firebase/saveProfile.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:easy2eat/core/theme/theme.dart';
@@ -15,12 +18,52 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
-  final TextEditingController _nameController = TextEditingController(text: "Chow Booh Hwa");
-  final TextEditingController _emailController = TextEditingController(text: "boohhwa@rider.easy2eat.com");
-  final TextEditingController _phoneController = TextEditingController(text: "+60 12-345 6789");
-  final TextEditingController _vehicleController = TextEditingController(text: "Motorcycle (WXY 5678)");
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _vehicleController = TextEditingController();
 
   File? _profileImage;
+  bool _isLoadingData = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfileFromFirestore();
+  }
+
+  /// Fetches the current user's profile from Firestore and populates text fields
+  Future<void> _loadUserProfileFromFirestore() async {
+    final String? uid = UserSession.currentUid;
+    if (uid != null) {
+      try {
+        DocumentSnapshot doc =
+            await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+        if (doc.exists && doc.data() != null) {
+          final data = doc.data() as Map<String, dynamic>;
+          setState(() {
+            _nameController.text = data['name'] ?? '';
+            _emailController.text = data['email'] ?? '';
+            _phoneController.text = data['phone'] ?? '';
+            _vehicleController.text = data['carPlate'] ?? data['vehicle'] ?? '';
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load profile data: $e')),
+          );
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingData = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -108,142 +151,155 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const RiderSubAppBar(title: "Profile Details"),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              // Profile Avatar with Camera Edit Button
-              Center(
-                child: Stack(
+      body: _isLoadingData
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: ThemesColors.brandOrange,
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade300,
-                      backgroundImage: _profileImage != null
-                          ? FileImage(_profileImage!) as ImageProvider
-                          : const AssetImage('lib/assets/images/Easy2Eat_Logo.jpg'),
+                    const SizedBox(height: 20),
+                    // Profile Avatar with Camera Edit Button
+                    Center(
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor: Colors.grey.shade300,
+                            backgroundImage: _profileImage != null
+                                ? FileImage(_profileImage!) as ImageProvider
+                                : const AssetImage('lib/assets/images/Easy2Eat_Logo.jpg'),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: ThemesColors.brandOrange,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                                onPressed: _showImagePickerBottomSheet,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: ThemesColors.brandOrange,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                    const SizedBox(height: 30),
+
+                    // Name TextFormField
+                    _buildTextFormField(
+                      label: "Full Name",
+                      controller: _nameController,
+                      icon: Icons.person_outline,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your full name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Email TextFormField
+                    _buildTextFormField(
+                      label: "Email Address",
+                      controller: _emailController,
+                      icon: Icons.email_outlined,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your email address';
+                        }
+                        if (!value.contains('@') || !value.contains('.')) {
+                          return 'Please enter a valid email address';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Phone Number TextFormField
+                    _buildTextFormField(
+                      label: "Phone Number",
+                      controller: _phoneController,
+                      icon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your phone number';
+                        }
+                        if (value.length < 9) {
+                          return 'Please enter a valid phone number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Vehicle Information TextFormField
+                    _buildTextFormField(
+                      label: "Vehicle Information",
+                      controller: _vehicleController,
+                      icon: Icons.motorcycle_outlined,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your vehicle information';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 40),
+
+                    // Save Changes Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ThemesColors.darkCharcoal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
-                          onPressed: _showImagePickerBottomSheet,
+                        onPressed: () {
+                          // Validate form before saving
+                          if (_formKey.currentState!.validate()) {
+                            // Save profile data strings to Firestore
+                            saveProfile_FireStore(
+                              _nameController.text.trim(),
+                              _emailController.text.trim(),
+                              _phoneController.text.trim(),
+                              _vehicleController.text.trim(),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Profile updated successfully!')),
+                            );
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: const Text(
+                          "Save Changes",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 30),
-
-              // Name TextFormField
-              _buildTextFormField(
-                label: "Full Name",
-                controller: _nameController,
-                icon: Icons.person_outline,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your full name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Email TextFormField
-              _buildTextFormField(
-                label: "Email Address",
-                controller: _emailController,
-                icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your email address';
-                  }
-                  if (!value.contains('@') || !value.contains('.')) {
-                    return 'Please enter a valid email address';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Phone Number TextFormField
-              _buildTextFormField(
-                label: "Phone Number",
-                controller: _phoneController,
-                icon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-                  if (value.length < 9) {
-                    return 'Please enter a valid phone number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Vehicle Information TextFormField
-              _buildTextFormField(
-                label: "Vehicle Information",
-                controller: _vehicleController,
-                icon: Icons.motorcycle_outlined,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your vehicle information';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 40),
-
-              // Save Changes Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ThemesColors.darkCharcoal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {
-                    // Validate form before saving
-                    if (_formKey.currentState!.validate()) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profile updated successfully!')),
-                      );
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: const Text(
-                    "Save Changes",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
