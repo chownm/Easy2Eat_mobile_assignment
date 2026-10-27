@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
+import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'loginButton.dart';
 
 class LoginPage extends StatefulWidget {
@@ -162,14 +163,22 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 20),
                       LoginButton.google(onPressed: () {}),
                       const SizedBox(height: 12),
-                      LoginButton.apple(onPressed: () {}),
-                      const SizedBox(height: 12),
                       LoginButton.facebook(onPressed: () {}),
                       const SizedBox(height: 12),
-                      LoginButton.email(onPressed: () {}),
+                      LoginButton.email(
+                        label: "Log In with Email",
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.emailLogin);
+                        },
+                      ),
                       const SizedBox(height: 12),
-                      LoginButton.phone(onPressed: () {}),
-                      const SizedBox(height: 20),
+                      LoginButton.email(
+                        label: "Sign Up with Email",
+                        onPressed: () {
+                          Navigator.pushNamed(context, AppRoutes.emailSignup);
+                        },
+                      ),
+                      const SizedBox(height: 12),
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
