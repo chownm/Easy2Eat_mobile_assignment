@@ -13,11 +13,20 @@ class OrderDetailWidget extends ConsumerStatefulWidget {
 }
 
 class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
+  // Controller to manage the scrollbar and list view scrolling
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final orders = ref.watch(orderListProvider);
 
-    return Column(      // Order Detail UI structure
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
@@ -40,23 +49,38 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: const Text('All caught up! No active orders', style: TextStyle(color: Colors.grey)),
+          )
+        else
+        // Framed Container with a Scrollbar for bounded order management
+          Container(
+            height: 450, // Fixed height frame to limit space and enable scrolling
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true, // Always show scrollbar indicator for better UX
+              child: ListView.builder(
+                controller: _scrollController,
+                shrinkWrap: false,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: orders.length,
+                itemBuilder: (context, index) {
+                  final order = orders[index];
+                  return _buildInteractiveOrderCard(context, order);
+                },
+              ),
+            ),
           ),
-
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            final order = orders[index];
-            return _buildInteractiveOrderCard(context, order);
-          },
-        ),
       ],
     );
   }
 
-  // Widget Setting for Order Status
-  Widget _buildInteractiveOrderCard(BuildContext context, OrderModel order){
+  // Widget Setting for Order Status Card
+  Widget _buildInteractiveOrderCard(BuildContext context, OrderModel order) {
     Color statusColor;
     String nextStatusText;
     String nextStatusValue;
@@ -88,13 +112,20 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
         break;
     }
 
-    return Container (
-      margin: const EdgeInsets.only(bottom: 14),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14, right: 8), // Right margin to give space for scrollbar
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,8 +138,9 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
                   Text(
                     order.orderID,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14,
-                        color: Colors.black
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -175,7 +207,7 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
           const Divider(height: 1, color: Colors.grey),
           const SizedBox(height: 10),
 
-          Row (
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
@@ -184,9 +216,7 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
                   const SizedBox(width: 4),
                   Text(
                     order.timeAgo,
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.grey
-                    ),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
@@ -220,19 +250,13 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
     );
   }
 
-  // Method: Loading order Data from riverpod
-  void _advanceOrderStatus(String targetOrderID, String newStatus){
+  // Method: Advance order status using copyWith to preserve all fields
+  void _advanceOrderStatus(String targetOrderID, String newStatus) {
     final currentOrders = ref.read(orderListProvider);
 
-    final updatedOrders = currentOrders.map((order){
-      if (order.orderID == targetOrderID){
-        return OrderModel(
-          orderID: order.orderID,
-          customerName: order.customerName,
-          orderItems: order.orderItems,
-          status: newStatus,
-          timeAgo: order.timeAgo,
-        );
+    final updatedOrders = currentOrders.map((order) {
+      if (order.orderID == targetOrderID) {
+        return order.copyWith(status: newStatus);
       }
       return order;
     }).toList();

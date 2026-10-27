@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
 import 'package:easy2eat/features/vendor/providers/qrcode-generation/qr-generator.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -29,14 +30,14 @@ class QrStorageState {
   });
 }
 
-/// 4. Notifier handling QR and order data transmission and storage
+/// 4. Notifier handling QR and order data transmission and storage to Cloud Firestore
 class QrStorageNotifier extends Notifier<QrStorageState> {
   @override
   QrStorageState build() {
     return const QrStorageState();
   }
 
-  /// Transmit and save order and QR code data to database
+  /// Transmit and save order and QR code data to Cloud Firestore
   Future<bool> saveOrderQrToDatabase(OrderModel order) async {
     state = const QrStorageState(status: QrStorageStatus.loading);
 
@@ -55,25 +56,25 @@ class QrStorageNotifier extends Notifier<QrStorageState> {
         'location': order.location,
         'qrPayload': qrPayload,
         'qrBase64': qrBase64 ?? '',
-        'updatedAt': DateTime.now().toIso8601String(),
+        'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      debugPrint("Transmitting and saving order QR to database: $dataToStore");
+      debugPrint("Transmitting and saving order QR to Cloud Firestore: $dataToStore");
 
-      // Firebase instance integration placeholder:
-      // await FirebaseFirestore.instance.collection('orders').doc(order.orderID).set(dataToStore, SetOptions(merge: true));
-
-      // Simulate network request latency
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Save directly into Firestore 'orders' collection
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(order.orderID)
+          .set(dataToStore, SetOptions(merge: true));
 
       state = QrStorageState(
         status: QrStorageStatus.success,
-        message: 'Order QR successfully stored in database',
+        message: 'Order QR successfully stored in Cloud Firestore',
         savedQrData: qrPayload,
       );
       return true;
     } catch (e) {
-      debugPrint("Failed to save order QR to database: $e");
+      debugPrint("Failed to save order QR to Cloud Firestore: $e");
       state = QrStorageState(
         status: QrStorageStatus.error,
         message: e.toString(),
