@@ -7,8 +7,16 @@ import 'package:easy2eat/core/theme/theme.dart';
 import '../../../../core/enum/user_role.dart';
 import 'statusSwitch.dart';
 
-class RiderHomePage extends StatelessWidget {
+class RiderHomePage extends StatefulWidget {
   const RiderHomePage({super.key});
+
+  @override
+  State<RiderHomePage> createState() => _RiderHomePageState();
+}
+
+class _RiderHomePageState extends State<RiderHomePage> {
+  final GlobalKey<OrderDetailState> _orderDetailKey =
+  GlobalKey<OrderDetailState>();
 
   int get _currentIndex => 0;
 
@@ -37,7 +45,9 @@ class RiderHomePage extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    _orderDetailKey.currentState?.resetOrders();
+                  },
                   icon: const Icon(
                     Icons.refresh,
                     color: ThemesColors.darkCharcoal,
@@ -47,7 +57,7 @@ class RiderHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             // Scrollable Order List
-            const Expanded(child: orderDetail()),
+            Expanded(child: orderDetail(key: _orderDetailKey)),
           ],
         ),
       ),
@@ -55,9 +65,15 @@ class RiderHomePage extends StatelessWidget {
         currentIndex: _currentIndex,
         role: UserRole.rider,
         onTap: (int index) {
-          if (index == 1) Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
-          if (index == 2) Navigator.pushReplacementNamed(context, AppRoutes.riderChat);
-          if (index == 3) Navigator.pushReplacementNamed(context, AppRoutes.settings);
+          if (index == 1) {
+            Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
+          }
+          if (index == 2) {
+            Navigator.pushReplacementNamed(context, AppRoutes.riderChat);
+          }
+          if (index == 3) {
+            Navigator.pushReplacementNamed(context, AppRoutes.settings);
+          }
         },
       ),
     );

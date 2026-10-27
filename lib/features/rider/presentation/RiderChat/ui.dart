@@ -5,6 +5,7 @@ import 'package:easy2eat/features/rider/presentation/RiderChat/searchMessages.da
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
 import '../../../../shared/widgets/shared_navigation_bar.dart';
 
@@ -34,19 +35,24 @@ class RiderChat extends StatelessWidget {
                 children: [
                   ChatSectionCard(
                     title: "TODAY",
-                    children: [
-                      ChatTileItem(
-                        initials: "AS",
+                    children: ChatListState.activeChats.map((chat) {
+                      return ChatTileItem(
+                        icon: chat.icon,
+                        initials: chat.icon == null ? chat.initials : null,
                         hasStatusDot: true,
-                        title: "Alex Sterling • Order #0001",
-                        subtitle: "Saya dah sampai depan guard h...",
-                        time: "12:43 PM",
+                        title: chat.title,
+                        subtitle: chat.subtitle,
+                        time: chat.time,
                         unreadCount: 1,
                         onTap: () {
-                          Navigator.pushNamed(context, "/chatWindow");
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.chatWindow,
+                            arguments: chat.title,
+                          );
                         },
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
                 ],
               ),

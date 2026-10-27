@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/theme/theme.dart';
 
 class QrCodeScan extends StatefulWidget {
@@ -63,7 +64,7 @@ class _QrCodeScanState extends State<QrCodeScan> {
               },
             ),
             iconSize: 28.0,
-            onPressed: () => cameraController.toggleTorch()
+            onPressed: () => cameraController.toggleTorch(),
           ),
         ],
       ),
@@ -79,6 +80,7 @@ class _QrCodeScanState extends State<QrCodeScan> {
                 final String? code = barcode.rawValue;
                 if (code != null && code.isNotEmpty) {
                   cameraController.stop();
+                  ActiveDeliveryState.markVendorQrScanned(); // Scanned vendor QR code!
                   Navigator.pop(context, code); // Return scanned QR result!
                   break;
                 }
@@ -141,7 +143,7 @@ class _QrCodeScanState extends State<QrCodeScan> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                'Place QR code inside box to scan',
+                'Place Vendor QR code inside box to scan',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 13,

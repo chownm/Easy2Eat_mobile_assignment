@@ -1,7 +1,7 @@
-import 'package:easy2eat/core/routing/RiderRouting.dart';
-import 'package:easy2eat/features/rider/presentation/QrScan/QrScan.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
+import 'package:easy2eat/core/routing/RiderRouting.dart';
+import 'package:easy2eat/features/rider/presentation/QrScan/QrScan.dart';
 
 class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -126,5 +126,36 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-// Alias for backwards compatibility
-typedef riderAppBar = RiderAppBar;
+/// Universal Sub-system AppBar with back button for sub-pages like Profile Details
+class RiderSubAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+
+  const RiderSubAppBar({super.key, required this.title});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      automaticallyImplyLeading: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: ThemesColors.darkCharcoal),
+        onPressed: () => Navigator.maybePop(context),
+      ),
+      title: Text(title),
+      toolbarTextStyle: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: ThemesColors.darkCharcoal,
+        letterSpacing: 0.5,
+      ),
+      backgroundColor: ThemesColors.brandOrange,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+      ),
+    );
+  }
+}
+
+

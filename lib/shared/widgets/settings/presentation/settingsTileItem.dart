@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/theme.dart';
-
+import 'package:easy2eat/core/theme/theme.dart';
 class SettingsTileItem extends StatelessWidget {
   final IconData icon;
   final Color iconColor;

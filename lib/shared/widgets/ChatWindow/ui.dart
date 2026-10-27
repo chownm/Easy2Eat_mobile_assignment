@@ -17,14 +17,35 @@ class ChatWindow extends StatefulWidget {
 }
 
 class _ChatWindowState extends State<ChatWindow> {
-  final List<String> _messages = [
-    "Hello! I am on my way to deliver your order.",
+  final List<ChatMessageModel> _messages = [
+    ChatMessageModel(
+      message: 'Saya dah sampai depan guard house lobby, abang.',
+      isSender: true,
+      time: '12:42 PM',
+      status: 'Read',
+    ),
+    ChatMessageModel(
+      message: "Okay I'm coming down now! Thanks!",
+      translation: 'Translation: "Saya dah sampai depan guard house lobby, abang."',
+      isSender: false,
+      time: '12:45 PM',
+    ),
   ];
 
   void _sendMessage(String text) {
-    if (text.isNotEmpty) {
+    if (text.trim().isNotEmpty) {
+      final now = TimeOfDay.now();
+      final formattedTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      
       setState(() {
-        _messages.add(text);
+        _messages.add(
+          ChatMessageModel(
+            message: text.trim(),
+            isSender: true,
+            time: formattedTime,
+            status: 'Sent',
+          ),
+        );
       });
     }
   }
@@ -37,8 +58,8 @@ class _ChatWindowState extends State<ChatWindow> {
       appBar: ChatAppBar(title: widget.title),
       body: Column(
         children: [
-          const Expanded(
-            child: ChatWindowBody(),
+          Expanded(
+            child: ChatWindowBody(messages: _messages),
           ),
           ChatWindowBottomBar(onSend: _sendMessage),
         ],
