@@ -14,7 +14,7 @@ class FoodItemData {
     return FoodItemData(
       quantity: map['qty'] as int? ?? map['quantity'] as int? ?? 1,
       name: map['name'] as String? ?? 'Item',
-      price: map['price'] as String? ?? '\$0.00',
+      price: map['price'] as String? ?? 'RM0.00',
     );
   }
 }
@@ -52,18 +52,37 @@ class DeliveryOrderData {
       formattedTime = rawTime.toString();
     }
 
+    final foodItems = (map['foodItems'] as List<dynamic>?)
+            ?.map((item) => FoodItemData.fromMap(item as Map<String, dynamic>))
+            .toList() ??
+        [];
+
+    // Calculate total order amount from food items
+    double totalOrderAmount = 0.0;
+    for (final item in foodItems) {
+      final cleanPrice = item.price.replaceAll(RegExp(r'[^0-9.]'), '');
+      final priceNum = double.tryParse(cleanPrice) ?? 0.0;
+      totalOrderAmount += priceNum * item.quantity;
+    }
+
+    // Earning is 10% of total order amount
+    double calculatedEarningNum = totalOrderAmount * 0.10;
+    if (calculatedEarningNum <= 0) {
+      calculatedEarningNum = 10.00; // Default fallback earning if price is zero
+    }
+
+    final String finalEarning = map['earningAmount'] as String? ??
+        "RM ${calculatedEarningNum.toStringAsFixed(2)}";
+
     return DeliveryOrderData(
       deliveryId: docId,
       orderTime: formattedTime,
       pickupLocation: map['pickupLocation'] as String? ?? 'Pickup: Kuala Lumpur',
       dropOffLocation: map['dropOffLocation'] as String? ?? 'Drop Off: Jalan Tun',
-      earningAmount: map['earningAmount'] as String? ?? 'RM100',
+      earningAmount: finalEarning,
       status: map['status'] as String? ?? 'pending',
       isDelivered: map['isDelivered'] as bool? ?? false,
-      foodItems: (map['foodItems'] as List<dynamic>?)
-              ?.map((item) => FoodItemData.fromMap(item as Map<String, dynamic>))
-              .toList() ??
-          [],
+      foodItems: foodItems,
       isAccepted: map['isAccepted'] as bool? ?? false,
       isDeclined: map['isDeclined'] as bool? ?? false,
     );
