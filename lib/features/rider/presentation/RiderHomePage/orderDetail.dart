@@ -5,6 +5,8 @@ import '../../../../core/constants/user_session.dart';
 import '../../../../core/routing/RiderRouting.dart';
 import '../../../../core/theme/theme.dart';
 import 'models/delivery_order_model.dart';
+import 'widgets/empty_orders_view.dart';
+import 'widgets/order_card_item.dart';
 
 class OrderDetail extends StatefulWidget {
   final List<DeliveryOrderData>? orders;
@@ -55,73 +57,18 @@ class OrderDetailState extends State<OrderDetail> {
       }
     } catch (_) {}
 
-    // Fallback default test orders
-    return [
-      DeliveryOrderData(
-        deliveryId: "Delivery #0001",
-        orderTime: "12:45 PM, 26 Oct",
-        pickupLocation: "Pickup: Kuala Lumpur",
-        dropOffLocation: "Drop Off: Jalan Tun",
-        earningAmount: "RM100",
-        status: 'pending',
-        isDelivered: false,
-        foodItems: const [
-          FoodItemData(quantity: 1, name: "Pizza", price: "\$10.00"),
-          FoodItemData(quantity: 2, name: "Burger", price: "\$15.00"),
-          FoodItemData(quantity: 1, name: "Spaghetti", price: "\$12.00"),
-          FoodItemData(quantity: 2, name: "French Fries", price: "\$5.00"),
-          FoodItemData(quantity: 1, name: "Coca-Cola", price: "\$2.50"),
-        ],
-      ),
-    ];
+    // Return empty list so everything is based 100% on Firestore!
+    return [];
   }
 
-  /// Default mock food items for list preview
+  /// Default mock food items for list preview using RM
   List<FoodItemData> get _defaultFoodItems => const [
-        FoodItemData(quantity: 1, name: "Pizza", price: "\$10.00"),
-        FoodItemData(quantity: 2, name: "Burger", price: "\$15.00"),
-        FoodItemData(quantity: 1, name: "Spaghetti", price: "\$12.00"),
-        FoodItemData(quantity: 2, name: "French Fries", price: "\$5.00"),
-        FoodItemData(quantity: 1, name: "Coca-Cola", price: "\$2.50"),
+        FoodItemData(quantity: 1, name: "Pizza", price: "RM10.00"),
+        FoodItemData(quantity: 2, name: "Burger", price: "RM15.00"),
+        FoodItemData(quantity: 1, name: "Spaghetti", price: "RM12.00"),
+        FoodItemData(quantity: 2, name: "French Fries", price: "RM5.00"),
+        FoodItemData(quantity: 1, name: "Coca-Cola", price: "RM2.50"),
       ];
-
-  /// Individual food item row
-  Widget foodDetailRow(int quantity, String foodName, String price) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Text(
-            "${quantity}x",
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: ThemesColors.darkCharcoal,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              foodName,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: ThemesColors.darkCharcoal,
-              ),
-            ),
-          ),
-          Text(
-            price,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: ThemesColors.darkCharcoal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _handleAccept(String deliveryId) async {
     setState(() {
@@ -293,36 +240,7 @@ class OrderDetailState extends State<OrderDetail> {
 
         // Show empty state when all orders are declined/removed
         if (activeOrders.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox_outlined, size: 60, color: Colors.grey[400]),
-                const SizedBox(height: 12),
-                Text(
-                  "No incoming orders",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: resetOrders,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Refresh Orders"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ThemesColors.darkCharcoal,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
+          return EmptyOrdersView(onRefresh: resetOrders);
         }
 
         return Scrollbar(
@@ -336,322 +254,22 @@ class OrderDetailState extends State<OrderDetail> {
                   _globalAcceptedOrders.contains(deliveryId) || order.isAccepted;
               final bool isLoading = _loadingOrderIds.contains(deliveryId);
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Delivery ID & Order Time Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              deliveryId,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: ThemesColors.darkCharcoal,
-                              ),
-                            ),
-                            if (isAccepted) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: ThemesColors.success.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  "ACCEPTED",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: ThemesColors.success,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        // Order Incoming Time & Date Display
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.access_time_rounded,
-                              size: 18,
-                              color: ThemesColors.darkCharcoal,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              order.orderTime,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: ThemesColors.darkCharcoal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Inner Card with FIXED height & dynamic food details list
-                    Container(
-                      width: double.infinity,
-                      height: 125,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Scrollbar(
-                        child: ListView.separated(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: _defaultFoodItems.length,
-                          separatorBuilder: (context, i) =>
-                              const Divider(height: 12, thickness: 0.5),
-                          itemBuilder: (context, itemIndex) {
-                            final item = _defaultFoodItems[itemIndex];
-                            return foodDetailRow(
-                              item.quantity,
-                              item.name,
-                              item.price,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Pickup Location
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.storefront,
-                          size: 18,
-                          color: ThemesColors.darkCharcoal,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            order.pickupLocation,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: ThemesColors.darkCharcoal,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Drop Off Location
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 18,
-                          color: ThemesColors.darkCharcoal,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            order.dropOffLocation,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: ThemesColors.darkCharcoal,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20, thickness: 1),
-
-                    // Earning Money Display
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Earning:",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: ThemesColors.darkCharcoal,
-                          ),
-                        ),
-                        Text(
-                          order.earningAmount,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: ThemesColors.darkCharcoal,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Show View Route Button if Accepted, else show Decline and Accept
-                    if (isAccepted) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: ThemesColors.brandOrange,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
-                                // Set primary active delivery number!
-                                ActiveDeliveryState.currentDeliveryNumber = deliveryId;
-
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  AppRoutes.riderMaps,
-                                  arguments: deliveryId,
-                                );
-                              },
-                              icon: const Icon(
-                                Icons.alt_route_rounded,
-                                color: Colors.white,
-                              ),
-                              label: const Text(
-                                "View Route",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Arrived Button
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ThemesColors.success,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: isLoading ? null : () => _showArrivedConfirmationDialog(context, deliveryId, order),
-                            child: isLoading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    "Arrived",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Row(
-                        children: [
-                          // Decline Button with Loading Spinner
-                          Expanded(
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: ThemesColors.error,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: isLoading ? null : () => _handleDecline(deliveryId),
-                              child: isLoading
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: ThemesColors.error,
-                                      ),
-                                    )
-                                  : const Text(
-                                      "Decline",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: ThemesColors.darkCharcoal,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-
-                          // Accept Button with Loading Spinner
-                          Expanded(
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                backgroundColor: ThemesColors.darkCharcoal,
-                                foregroundColor: ThemesColors.success,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: isLoading ? null : () => _handleAccept(deliveryId),
-                              child: isLoading
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text(
-                                      "Accept",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
+              return OrderCardItem(
+                order: order,
+                isAccepted: isAccepted,
+                isLoading: isLoading,
+                onAccept: () => _handleAccept(deliveryId),
+                onDecline: () => _handleDecline(deliveryId),
+                onViewRoute: () {
+                  ActiveDeliveryState.currentDeliveryNumber = deliveryId;
+                  Navigator.pushReplacementNamed(
+                    context,
+                    AppRoutes.riderMaps,
+                    arguments: deliveryId,
+                  );
+                },
+                onArrived: () => _showArrivedConfirmationDialog(context, deliveryId, order),
+                defaultFoodItems: _defaultFoodItems,
               );
             },
           ),

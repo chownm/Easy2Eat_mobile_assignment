@@ -3,20 +3,51 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/user_session.dart';
 import '../../../../core/theme/theme.dart';
 
-class EarningSummary extends StatelessWidget {
+class EarningSummary extends StatefulWidget {
   const EarningSummary({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final uid = UserSession.currentUid ?? 'guest_rider';
+  State<EarningSummary> createState() => EarningSummaryState();
+}
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('recent_trips')
-          .snapshots(),
+class EarningSummaryState extends State<EarningSummary> {
+  late Future<QuerySnapshot> _earningsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _earningsFuture = _fetchEarnings();
+  }
+
+  void refreshEarnings() {
+    setState(() {
+      _earningsFuture = _fetchEarnings();
+    });
+  }
+
+  Future<QuerySnapshot> _fetchEarnings() async {
+    final uid = UserSession.currentUid ?? 'guest_rider';
+    return await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('recent_trips')
+        .get();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<QuerySnapshot>(
+      future: _earningsFuture,
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(color: ThemesColors.brandOrange),
+            ),
+          );
+        }
+
         final docs = snapshot.data?.docs ?? [];
 
         int tripCount = docs.length;

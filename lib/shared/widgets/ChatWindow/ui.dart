@@ -51,14 +51,13 @@ class _ChatWindowState extends State<ChatWindow> {
   Widget build(BuildContext context) {
     final activeUid = uid ?? 'guest_rider';
 
-    // Stream messages from Firestore subcollection: users/{uid}/chats/{chatTitle}/messages
+    // Stream messages from Firestore subcollection without orderBy delay
     final messagesStream = FirebaseFirestore.instance
         .collection('users')
         .doc(activeUid)
         .collection('chats')
         .doc(widget.title)
         .collection('messages')
-        .orderBy('timestamp', descending: false)
         .snapshots();
 
     return Scaffold(
@@ -68,7 +67,8 @@ class _ChatWindowState extends State<ChatWindow> {
       body: StreamBuilder<QuerySnapshot>(
         stream: messagesStream,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // If waiting, show instant empty list instead of a full loading spinner to prevent perceived lag
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
