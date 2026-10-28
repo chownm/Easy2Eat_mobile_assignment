@@ -19,34 +19,32 @@ Map<String, dynamic> _$GeoapifyResponseToJson(GeoapifyResponse instance) =>
     };
 
 Feature _$FeatureFromJson(Map<String, dynamic> json) => Feature(
-      properties: json['properties'] == null
-          ? null
-          : Properties.fromJson(json['properties'] as Map<String, dynamic>),
-      geometry: json['geometry'] == null
-          ? null
-          : Geometry.fromJson(json['geometry'] as Map<String, dynamic>),
-    );
+  properties: json['properties'] == null
+      ? null
+      : Properties.fromJson(json['properties'] as Map<String, dynamic>),
+  geometry: json['geometry'] == null
+      ? null
+      : Geometry.fromJson(json['geometry'] as Map<String, dynamic>),
+);
 
 Map<String, dynamic> _$FeatureToJson(Feature instance) => <String, dynamic>{
-      'properties': instance.properties?.toJson(),
-      'geometry': instance.geometry?.toJson(),
-    };
+  'properties': instance.properties?.toJson(),
+  'geometry': instance.geometry?.toJson(),
+};
 
-Geometry _$GeometryFromJson(Map<String, dynamic> json) => Geometry(
-      type: json['type'] as String?,
-      coordinates: json['coordinates'],
-    );
+Geometry _$GeometryFromJson(Map<String, dynamic> json) =>
+    Geometry(type: json['type'] as String?, coordinates: json['coordinates']);
 
 Map<String, dynamic> _$GeometryToJson(Geometry instance) => <String, dynamic>{
-      'type': instance.type,
-      'coordinates': instance.coordinates,
-    };
+  'type': instance.type,
+  'coordinates': instance.coordinates,
+};
 
 Properties _$PropertiesFromJson(Map<String, dynamic> json) => Properties(
-      formatted: json['formatted'] as String?,
-      distance: (json['distance'] as num?)?.toDouble(),
-      time: (json['time'] as num?)?.toDouble(),
-    );
+  formatted: json['formatted'] as String?,
+  distance: (json['distance'] as num?)?.toDouble(),
+  time: (json['time'] as num?)?.toDouble(),
+);
 
 Map<String, dynamic> _$PropertiesToJson(Properties instance) =>
     <String, dynamic>{

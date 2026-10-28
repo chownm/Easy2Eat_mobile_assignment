@@ -5,8 +5,20 @@ import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
-class RiderDashBoard extends StatelessWidget {
+class RiderDashBoard extends StatefulWidget {
   const RiderDashBoard({super.key});
+
+  @override
+  State<RiderDashBoard> createState() => _RiderDashBoardState();
+}
+
+class _RiderDashBoardState extends State<RiderDashBoard> {
+  void _refreshDashboard() {
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dashboard refreshed from Firestore!')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,15 +43,13 @@ class RiderDashBoard extends StatelessWidget {
                   ),
                 ),
                 RefreshButton(
-                  onPressed: () {
-                    // Trigger refresh
-                  },
+                  onPressed: _refreshDashboard,
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Earning Summary Card
+            // Earning Summary Card (Calculates total earnings dynamically)
             const EarningSummary(),
             const SizedBox(height: 16),
 
@@ -54,12 +64,10 @@ class RiderDashBoard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Dynamic Delivery History List
+            // Dynamic Delivery History List fetched from Firestore
             const Expanded(
               child: Scrollbar(
-                child: DeliveryHistoryList(
-                  itemCount: 6,
-                ),
+                child: DeliveryHistoryList(),
               ),
             ),
           ],

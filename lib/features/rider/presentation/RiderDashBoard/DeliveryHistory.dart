@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/constants/user_session.dart';
 import '../../../../core/theme/theme.dart';
 
 class DeliveryHistory extends StatelessWidget {
@@ -112,28 +114,132 @@ class DeliveryHistory extends StatelessWidget {
   }
 }
 
-/// Dynamic List Builder for Delivery History
+/// Dynamic List Builder for Delivery History fetched from Firestore
 class DeliveryHistoryList extends StatelessWidget {
-  final int itemCount;
+  final Future<void> Function()? onRefresh;
 
   const DeliveryHistoryList({
     super.key,
-    this.itemCount = 3,
+    this.onRefresh,
   });
+
+  void _showTripDetailsModal(BuildContext context, Map<String, dynamic> tripData) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    tripData['deliveryId'] ?? 'Delivery #0001',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: ThemesColors.darkCharcoal,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.storefront, size: 18, color: ThemesColors.darkCharcoal),
+                  const SizedBox(width: 8),
+                  Text("Pickup: Kuala Lumpur", style: TextStyle(color: Colors.grey[700])),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 18, color: ThemesColors.darkCharcoal),
+                  const SizedBox(width: 8),
+                  Text("Drop Off: ${tripData['destination'] ?? 'Jalan Tun'}", style: TextStyle(color: Colors.grey[700])),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Earning:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    tripData['earning']?.toString().startsWith('RM') == true
+                        ? tripData['earning']
+                        : "RM ${tripData['earning'] ?? '100.00'}",
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: ThemesColors.success),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: itemCount,
-      itemBuilder: (context, index) {
-        return DeliveryHistory(
-          orderCode: "#E2E-${8842 - index}",
-          time: "12:44 PM",
-          storeName: "Kedai Kopi Makcik",
-          dropoffLocation: "Subang Jaya",
-          earning: "RM ${(9.50 + index).toStringAsFixed(2)}",
-          onTap: () {},
+    final uid = UserSession.currentUid ?? 'guest_rider';
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('recent_trips')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: ThemesColors.brandOrange));
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+
+        if (docs.isEmpty) {
+          return Center(
+            child: Text(
+              "No recent trip records yet.",
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final doc = docs[index];
+            final data = doc.data() as Map<String, dynamic>;
+
+            final deliveryId = data['deliveryId'] ?? "#E2E-${8842 - index}";
+            final destination = data['destination'] ?? "Subang Jaya";
+            final earningRaw = data['earning']?.toString() ?? "10.00";
+            final earning = earningRaw.startsWith('RM') ? earningRaw : "RM $earningRaw";
+
+            return DeliveryHistory(
+              orderCode: deliveryId,
+              time: "Completed",
+              storeName: "Restoran",
+              dropoffLocation: destination,
+              earning: earning,
+              onTap: () => _showTripDetailsModal(context, data),
+            );
+          },
         );
       },
     );

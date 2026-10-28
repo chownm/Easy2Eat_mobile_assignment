@@ -34,16 +34,17 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
   List<LatLng> _routePoints = [];
 
   bool _showDeliveryCard = true;
+  bool _isHeadingToCustomer = false; // Toggle between Vendor & Customer
 
   @override
   void initState() {
     super.initState();
+    _isHeadingToCustomer = ActiveDeliveryState.isVendorQrScanned;
     _loadDestinationAddress();
   }
 
-  LatLng get _activeDestination => ActiveDeliveryState.isVendorQrScanned
-      ? _customerLocation
-      : _vendorLocation;
+  LatLng get _activeDestination =>
+      _isHeadingToCustomer ? _customerLocation : _vendorLocation;
 
   Future<void> _loadDestinationAddress() async {
     final target = _activeDestination;
@@ -54,7 +55,7 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
     if (mounted) {
       setState(() {
         _destinationAddress = address ??
-            (ActiveDeliveryState.isVendorQrScanned
+            (_isHeadingToCustomer
                 ? "Drop Off: Jalan Tun"
                 : "Pickup: Kuala Lumpur Store");
       });
@@ -128,17 +129,30 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
               "${route.distanceKm.toStringAsFixed(1)} km • ${route.durationMinutes.toStringAsFixed(0)} mins away";
           _routePoints = route.routePoints;
         } else {
-          _routeInfo = "3.2 km • 12 mins away";
+          _routeInfo = _isHeadingToCustomer
+              ? "3.2 km • 12 mins away"
+              : "1.8 km • 6 mins away";
           _routePoints = [startPos, target];
         }
       });
     }
   }
 
+  void _toggleDestinationPhase() {
+    setState(() {
+      _isHeadingToCustomer = !_isHeadingToCustomer;
+    });
+    _loadDestinationAddress();
+    if (_currentPosition != null) {
+      _loadRouteInfo(_currentPosition!);
+    } else {
+      _mapController.move(_activeDestination, 14.0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final String apiKey = MapApiService.geoapifyApiKey;
-    final bool isHeadingToCustomer = ActiveDeliveryState.isVendorQrScanned;
     final LatLng destinationPoint = _activeDestination;
 
     return Stack(
@@ -177,7 +191,7 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                   point: destinationPoint,
                   width: 50,
                   height: 50,
-                  child: isHeadingToCustomer
+                  child: _isHeadingToCustomer
                       ? const Icon(Icons.location_on, color: Colors.red, size: 38)
                       : Container(
                           decoration: const BoxDecoration(
@@ -249,7 +263,7 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
             right: 16,
             bottom: 16,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -265,72 +279,107 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Row: Delivery Number & Phase Badge & Close Button
+                  // Top Row: Delivery Number & Compact Phase Switch Badge & Close Icon
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            widget.deliveryNumber,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: ThemesColors.darkCharcoal,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Text(
+                              widget.deliveryNumber,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: ThemesColors.darkCharcoal,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Dynamic Status Badge: Changes character from Vendor to Customer!
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isHeadingToCustomer
-                                  ? ThemesColors.success.withValues(alpha: 0.15)
-                                  : ThemesColors.brandOrange.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isHeadingToCustomer
-                                      ? Icons.person_pin_circle
-                                      : Icons.storefront,
-                                  size: 14,
-                                  color: isHeadingToCustomer
-                                      ? ThemesColors.success
-                                      : ThemesColors.brandOrange,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isHeadingToCustomer
-                                      ? "GOING TO CUSTOMER"
-                                      : "GOING TO VENDOR",
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: isHeadingToCustomer
-                                        ? ThemesColors.success
-                                        : ThemesColors.brandOrange,
+                            const SizedBox(width: 6),
+                            // Compact Switch Badge with Arrow Icon
+                            Flexible(
+                              child: GestureDetector(
+                                onTap: _toggleDestinationPhase,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _isHeadingToCustomer
+                                        ? ThemesColors.success.withValues(alpha: 0.15)
+                                        : ThemesColors.brandOrange.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _isHeadingToCustomer
+                                          ? ThemesColors.success
+                                          : ThemesColors.brandOrange,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _isHeadingToCustomer
+                                            ? Icons.person_pin_circle
+                                            : Icons.storefront,
+                                        size: 13,
+                                        color: _isHeadingToCustomer
+                                            ? ThemesColors.success
+                                            : ThemesColors.brandOrange,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          _isHeadingToCustomer
+                                              ? "GOING TO CUSTOMER"
+                                              : "GOING TO VENDOR",
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: _isHeadingToCustomer
+                                                ? ThemesColors.success
+                                                : ThemesColors.brandOrange,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Icon(
+                                        Icons.swap_horiz_rounded,
+                                        size: 14,
+                                        color: _isHeadingToCustomer
+                                            ? ThemesColors.success
+                                            : ThemesColors.brandOrange,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () {
+                      const SizedBox(width: 6),
+                      // Compact Close Button
+                      GestureDetector(
+                        onTap: () {
                           setState(() {
                             _showDeliveryCard = false;
                           });
                         },
+                        child: const Padding(
+                          padding: EdgeInsets.all(4.0),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 20,
+                            color: ThemesColors.darkCharcoal,
+                          ),
+                        ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
 
                   // Route Info: Distance & Duration
                   Row(
