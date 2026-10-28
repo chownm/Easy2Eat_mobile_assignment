@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../../core/constants/active_delivery.dart';
@@ -73,15 +74,37 @@ class _QrCodeScanState extends State<QrCodeScan> {
           // Live Camera Preview with Restricted Scan Window
           MobileScanner(
             controller: cameraController,
-            scanWindow: scanWindowRect, // Restricts detection to the 200x200 box!
-            onDetect: (capture) {
+            scanWindow: scanWindowRect,
+            onDetect: (capture) async {
               final List<Barcode> barcodes = capture.barcodes;
               for (final barcode in barcodes) {
                 final String? code = barcode.rawValue;
                 if (code != null && code.isNotEmpty) {
                   cameraController.stop();
                   ActiveDeliveryState.markVendorQrScanned(); // Scanned vendor QR code!
-                  Navigator.pop(context, code); // Return scanned QR result!
+
+                  // Update Firestore order status
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('orders')
+                        .doc(ActiveDeliveryState.currentDeliveryNumber)
+                        .set({
+                      'qrScanned': true,
+                      'status': 'vendor_qr_scanned',
+                    }, SetOptions(merge: true));
+                  } catch (_) {}
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'QR Code verified for ${ActiveDeliveryState.currentDeliveryNumber}!',
+                        ),
+                        backgroundColor: ThemesColors.success,
+                      ),
+                    );
+                    Navigator.pop(context, code);
+                  }
                   break;
                 }
               }

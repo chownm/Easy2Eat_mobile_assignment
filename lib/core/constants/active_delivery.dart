@@ -51,23 +51,9 @@ class ChatItemData {
   });
 }
 
-/// Global Chat List State Manager (prevents duplicate tiles and adds new chats)
+/// Global Chat List State Manager (starts empty, generates chat tiles when rider taps Chat Vendor/Customer)
 class ChatListState {
-  static final List<ChatItemData> activeChats = [
-    ChatItemData(
-      title: "Vendor Delivery #0001",
-      subtitle: "Food is being prepared at restaurant",
-      time: "12:40 PM",
-      initials: "VD",
-      icon: Icons.storefront_outlined,
-    ),
-    ChatItemData(
-      title: "Customer Delivery #0001",
-      subtitle: "Saya dah sampai depan guard house lobby, abang.",
-      time: "12:43 PM",
-      initials: "CD",
-    ),
-  ];
+  static final List<ChatItemData> activeChats = [];
 
   /// Creates a new chat tile if it doesn't exist, or keeps the existing chat!
   static void startOrOpenChat(String chatTitle, BuildContext context) {

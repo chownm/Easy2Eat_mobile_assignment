@@ -15,23 +15,6 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Initialize Push Notifications & request permission
-  try {
-    final notificationSettings = await FirebaseMessaging.instance.requestPermission(provisional: true);
-    print("Notification permission status: ${notificationSettings.authorizationStatus}");
-
-    final fcmToken = await FirebaseMessaging.instance.getToken();
-    print("FCM Token: $fcmToken");
-
-    final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-    if (apnsToken != null) {
-      print("APNS Token: $apnsToken");
-    }
-  } catch (e) {
-    print("Notification initialization error: $e");
-  }
-
   await dotenv.load(fileName: "lib/core/constants/.env"); // Loads .env
 
   runApp(const ProviderScope(child: MyApp()));

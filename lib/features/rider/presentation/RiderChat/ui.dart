@@ -9,9 +9,14 @@ import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
 import '../../../../shared/widgets/shared_navigation_bar.dart';
 
-class RiderChat extends StatelessWidget {
+class RiderChat extends StatefulWidget {
   const RiderChat({super.key});
 
+  @override
+  State<RiderChat> createState() => _RiderChatState();
+}
+
+class _RiderChatState extends State<RiderChat> {
   int get _currentIndex => 2;
 
   @override
@@ -28,35 +33,71 @@ class RiderChat extends StatelessWidget {
             const SearchMessages(),
             const SizedBox(height: 16),
 
-            Scrollbar(
-              child: ListView(
-                shrinkWrap: true,
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  ChatSectionCard(
-                    title: "TODAY",
-                    children: ChatListState.activeChats.map((chat) {
-                      return ChatTileItem(
-                        icon: chat.icon,
-                        initials: chat.icon == null ? chat.initials : null,
-                        hasStatusDot: true,
-                        title: chat.title,
-                        subtitle: chat.subtitle,
-                        time: chat.time,
-                        unreadCount: 1,
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.chatWindow,
-                            arguments: chat.title,
-                          );
-                        },
-                      );
-                    }).toList(),
+            ChatListState.activeChats.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 100.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 60,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            "No active chats yet",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Tap 'Chat Vendor' or 'Chat Customer' from the Maps page to start chatting.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Scrollbar(
+                    child: ListView(
+                      shrinkWrap: true,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        ChatSectionCard(
+                          title: "TODAY",
+                          children: ChatListState.activeChats.map((chat) {
+                            return ChatTileItem(
+                              icon: chat.icon,
+                              initials: chat.icon == null ? chat.initials : null,
+                              hasStatusDot: true,
+                              title: chat.title,
+                              subtitle: chat.subtitle,
+                              time: chat.time,
+                              unreadCount: 1,
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.chatWindow,
+                                  arguments: chat.title,
+                                ).then((_) {
+                                  setState(() {});
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
