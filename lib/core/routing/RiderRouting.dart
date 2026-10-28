@@ -50,9 +50,18 @@ class AppRouter {
       case AppRoutes.profileDetails:
         return MaterialPageRoute(builder: (_) => const ProfileDetailsPage());
       case AppRoutes.chatWindow:
-        final args = settings.arguments;
-        final String chatTitle = (args is String && args.isNotEmpty) ? args : 'Chat';
-        return MaterialPageRoute(builder: (_) => ChatWindow(title: chatTitle));
+        final chatTitle = settings.arguments as String? ?? 'Customer';
+        // Extracts order ID if present (e.g. from "Customer ORD-4568")
+        final cleanRoomId = 'order_${chatTitle.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+
+        return MaterialPageRoute(
+          builder: (context) => ChatWindow(
+            title: chatTitle,
+            subtitle: 'Active Order • On Delivery',
+            chatRoomId: cleanRoomId, // Unique room for this customer!
+            isCustomerView: false,   // Sets role to Rider!
+          ),
+        );
       default:
         return MaterialPageRoute(builder: (_) => const RiderHomePage());
     }

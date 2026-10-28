@@ -4,6 +4,7 @@ import 'package:easy2eat/features/rider/presentation/RiderChat/chatTileItem.dart
 import 'package:easy2eat/features/rider/presentation/RiderChat/searchMessages.dart';
 import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:flutter/material.dart';
+import 'package:easy2eat/shared/widgets/ChatWindow/ui.dart';
 
 import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/enum/user_role.dart';
@@ -84,10 +85,16 @@ class _RiderChatState extends State<RiderChat> {
                               time: chat.time,
                               unreadCount: 1,
                               onTap: () {
-                                Navigator.pushNamed(
+                                Navigator.push(
                                   context,
-                                  AppRoutes.chatWindow,
-                                  arguments: chat.title,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ChatWindow(
+                                      title: 'Customer (Gate Pillar 2)',
+                                      subtitle: 'Order #E2E-89241',
+                                      chatRoomId: 'order_E2E-89241', // Exact same room as Customer!
+                                      isCustomerView: false,         // Sets role to Rider!
+                                    ),
+                                  ),
                                 ).then((_) {
                                   setState(() {});
                                 });

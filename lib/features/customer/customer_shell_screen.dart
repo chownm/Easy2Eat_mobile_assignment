@@ -1,3 +1,4 @@
+import 'package:easy2eat/features/customer/tracking/tracking_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/enum/user_role.dart';
 import 'package:easy2eat/features/customer/home/home_screen.dart';
@@ -25,7 +26,7 @@ class _CustomerShellScreenState extends State<CustomerShellScreen> {
   final List<Widget> _pages = const <Widget>[
     CustomerHomeScreen(),
     CustomerCartCheckoutScreen(),
-    _PlaceholderTab(title: 'Live Tracking Screen (c_06)'), // Index 2: Track
+    CustomerTrackingScreen(),
     _PlaceholderTab(title: 'System Settings Screen (c_11)'), // Index 3: Settings
   ];
 
