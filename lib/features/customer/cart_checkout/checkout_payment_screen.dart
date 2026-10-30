@@ -1,8 +1,11 @@
 import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/features/customer/models/cart_item_model.dart';
 import 'package:easy2eat/features/customer/cart_checkout/widgets/delivery_pin_card.dart';
+import 'package:easy2eat/features/customer/tracking/tracking_screen.dart';
+import 'package:easy2eat/features/customer/customer_shell_screen.dart';
 
 enum PaymentMethod {
   tngEWallet,
@@ -35,6 +38,80 @@ class _CustomerCheckoutPaymentScreenState
     extends State<CustomerCheckoutPaymentScreen> {
   DeliveryTimingMode _selectedTimingMode = DeliveryTimingMode.immediateDirect;
   PaymentMethod _selectedPayment = PaymentMethod.tngEWallet;
+  bool _isProcessing = false;
+
+  Future<void> _placeOrder() async {
+    setState(() => _isProcessing = true);
+
+    try {
+      // 1. Generate a clean Order ID
+      final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+
+      // 2. Format cart items into the single String expected by the Vendor's schema
+      final String orderItemsString = widget.cartItems
+          .map((item) => '${item.quantity}x ${item.title} (${item.customizationTag})')
+          .join('\n');
+
+      // 3. Build the payload exactly matching the Vendor's OrderModel
+      final Map<String, dynamic> orderPayload = {
+        'orderID': orderId,
+        'qrID': orderId,
+        'customerName': 'Joel Ira', // Hardcoded temporarily until Profile module
+        'customerPhone': '+60 12-892 4118',
+        'orderItems': orderItemsString,
+        'totalPrice': widget.totalAmount,
+        'status': 'pending',
+        'timeAgo': '',
+        'location': CartItemModel.mockDropOffPin.microPinLandmark, // Sub-pin drop-off
+        'createdAt': DateTime.now().toIso8601String(),
+        'assignedRiderId': null,
+        'riderName': null,
+        'riderPhone': null,
+        'isPickedUp': false,
+        'pickedUpAt': null,
+      };
+
+      // 4. Execute the Firestore write
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(orderId)
+          .set(orderPayload);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: ThemesColors.freshGreen,
+          content: Text('Order placed successfully!'),
+        ),
+      );
+
+      // 5. Route to Live Tracking Screen (Next Milestone)
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CustomerShellScreen(
+            initialIndex: 2, // Forces the bottom nav to start on Tracking Tab
+            activeOrderId: orderId, // Passes your live Firestore ID
+          ),
+        ),
+            (route) => false, // Prevents Android back-button from returning to checkout
+      );
+
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: ThemesColors.brandOrange,
+          content: Text('Failed to place order: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,26 +350,27 @@ class _CustomerCheckoutPaymentScreenState
 
                     // Final Place Order button
                     ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            backgroundColor: ThemesColors.freshGreen,
-                            content: Text(
-                              'Order placed! Launching stage-decomposed tracking...',
-                            ),
-                          ),
-                        );
-                      },
+                      onPressed: _isProcessing ? null : _placeOrder,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 50),
                         elevation: 0,
                         backgroundColor: ThemesColors.brandOrange,
                         foregroundColor: ThemesColors.appSurface,
+                        disabledBackgroundColor: ThemesColors.brandOrange.withValues(alpha: 0.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: const Text(
+                      child: _isProcessing
+                          ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: ThemesColors.appSurface,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                          : const Text(
                         'Confirm & Place Order',
                         style: TextStyle(
                           fontSize: 16,

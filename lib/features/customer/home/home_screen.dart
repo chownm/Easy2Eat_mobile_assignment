@@ -8,6 +8,8 @@ import 'package:easy2eat/features/customer/home/widgets/category_filter_bar.dart
 import 'package:easy2eat/features/customer/home/widgets/feed_section_header.dart';
 import 'package:easy2eat/features/customer/home/widgets/merchant_feed_card.dart';
 import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
+import 'package:easy2eat/features/customer/models/customer_profile_model.dart';
+import 'package:easy2eat/features/customer/settings/widgets/customer_profile_screen.dart';
 
 class CustomerHomeScreen extends StatelessWidget {
   const CustomerHomeScreen({super.key});
@@ -22,12 +24,12 @@ class CustomerHomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           // Top Bar
-        const SharedCustomerTopBar(
-          title: 'Easy2Eat • C180 / Traders Sq',
-          subtitle: 'Hyper-Local <1km Unstacked Dispatch Active',
-          showPulseIndicator: true,
-          showProfileButton: true,
-        ),
+          SharedCustomerTopBar(
+            title: 'Easy2Eat • C180 / Traders Sq',
+            subtitle: 'Hyper-Local <1km Unstacked Dispatch Active',
+            showPulseIndicator: true,
+            showProfileButton: true,
+          ),
 
         const SizedBox(height: 14),
 
@@ -69,7 +71,7 @@ class CustomerHomeScreen extends StatelessWidget {
               separatorBuilder: (BuildContext context, int index) =>
                   const SizedBox(height: 16),
               itemBuilder: (BuildContext context, int index) {
-                final StaticMerchantModel merchant = CustomerMerchantFeedCard.merchantFeed[index];
+                final MerchantModel merchant = CustomerMerchantFeedCard.merchantFeed[index];
                 return CustomerMerchantFeedCard(merchant: merchant);
               }
             ),

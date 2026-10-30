@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 // 4 Transparent operational dispatch stages
@@ -147,8 +148,25 @@ class TrackingMilestoneModel {
 /// Master Entity representing live tracking state for Tab 2.
 @immutable
 class OrderTrackingModel {
+  /// Global preference toggle: Enable/disable 100m proximity alert chime & banner
+  static bool isProximityBeaconEnabled = true;
+
+  /// Global default drop-off sub-pin landmark (Configurable via Settings c_11)
+  static String defaultSubPinLandmark = 'Gate Pillar 2 (Table)';
+
+  // Vendor Flat Schema Fields (Synced with Firestore)
   final String orderId;
   final OrderTrackingStage currentStage;
+  final String customerName;
+  final String customerPhone;
+  final double totalPrice;
+  final String location;
+  final String? assignedRiderId;
+  final String? riderName;
+  final String? riderPhone;
+  final bool isPickedUp;
+
+  // Local UI State Fields
   final String etaTimeDisplay;
   final int etaMinutesRemaining;
   final String etaBadgeLabel;
@@ -156,24 +174,79 @@ class OrderTrackingModel {
   final bool is100mBeaconActive;
   final String residenceLabel;
   final CorridorRouteModel corridor;
-  final CourierProfileModel courier;
   final DropOffProofModel dropOffProof;
   final List<TrackingMilestoneModel> milestones;
 
   const OrderTrackingModel({
     required this.orderId,
     required this.currentStage,
-    required this.etaTimeDisplay,
-    required this.etaMinutesRemaining,
-    required this.etaBadgeLabel,
-    required this.stageDescription,
-    required this.is100mBeaconActive,
-    required this.residenceLabel,
-    required this.corridor,
-    required this.courier,
-    required this.dropOffProof,
-    required this.milestones,
+    required this.customerName,
+    required this.customerPhone,
+    required this.totalPrice,
+    required this.location,
+    this.assignedRiderId,
+    this.riderName,
+    this.riderPhone,
+    required this.isPickedUp,
+
+    // UI Defaults
+    this.etaTimeDisplay = '',
+    this.etaMinutesRemaining = 0,
+    this.etaBadgeLabel = '',
+    this.stageDescription = '',
+    this.is100mBeaconActive = false,
+    this.residenceLabel = 'Landed Villa',
+    this.corridor = defaultCorridor,
+    this.dropOffProof = defaultProof,
+    this.milestones = standardMilestones,
   });
+
+  /// Bridges the Vendor's flat rider string fields into the UI's Courier Object
+  CourierProfileModel get courier => CourierProfileModel(
+    name: riderName ?? 'Assigned Courier',
+    plateNumber: 'TBD',
+    vehicleType: 'Motorcycle',
+    phoneNumber: riderPhone ?? '',
+    hubAffiliation: 'Platform Fleet',
+  );
+
+  /// Master parser for the shared pipeline document reading from Vendor's OrderModel[cite: 2].
+  factory OrderTrackingModel.fromFirestore(DocumentSnapshot doc) {
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    // 1. Safely map Vendor's string status to Customer enum
+    final String rawStatus = data['status'] ?? 'pending';
+    OrderTrackingStage parsedStage;
+    switch (rawStatus) {
+      case 'preparing':
+        parsedStage = OrderTrackingStage.preparing;
+        break;
+      case 'almostDone':
+        parsedStage = OrderTrackingStage.almostDone;
+        break;
+      case 'delivered':
+      case 'done':
+        parsedStage = OrderTrackingStage.delivered;
+        break;
+      case 'pending':
+      default:
+        parsedStage = OrderTrackingStage.confirmed;
+    }
+
+    return OrderTrackingModel(
+      orderId: data['orderID'] ?? doc.id,
+      currentStage: parsedStage,
+      customerName: data['customerName'] ?? '',
+      customerPhone: data['customerPhone'] ?? '',
+      totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0.0,
+      location: data['location'] ?? '',
+      assignedRiderId: data['assignedRiderId'],
+      riderName: data['riderName'],
+      riderPhone: data['riderPhone'],
+      isPickedUp: data['isPickedUp'] ?? false,
+      etaMinutesRemaining: (data['minutesRemaining'] as num?)?.toInt() ?? 0,
+    );
+  }
 
   OrderTrackingModel copyWith({
     String? orderId,
@@ -183,29 +256,33 @@ class OrderTrackingModel {
     String? etaBadgeLabel,
     String? stageDescription,
     bool? is100mBeaconActive,
-    String? residenceLabel,
     CorridorRouteModel? corridor,
-    CourierProfileModel? courier,
-    DropOffProofModel? dropOffProof,
-    List<TrackingMilestoneModel>? milestones,
   }) {
     return OrderTrackingModel(
       orderId: orderId ?? this.orderId,
       currentStage: currentStage ?? this.currentStage,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      totalPrice: totalPrice,
+      location: location,
+      assignedRiderId: assignedRiderId,
+      riderName: riderName,
+      riderPhone: riderPhone,
+      isPickedUp: isPickedUp,
       etaTimeDisplay: etaTimeDisplay ?? this.etaTimeDisplay,
       etaMinutesRemaining: etaMinutesRemaining ?? this.etaMinutesRemaining,
       etaBadgeLabel: etaBadgeLabel ?? this.etaBadgeLabel,
       stageDescription: stageDescription ?? this.stageDescription,
       is100mBeaconActive: is100mBeaconActive ?? this.is100mBeaconActive,
-      residenceLabel: residenceLabel ?? this.residenceLabel,
+      residenceLabel: residenceLabel,
       corridor: corridor ?? this.corridor,
-      courier: courier ?? this.courier,
-      dropOffProof: dropOffProof ?? this.dropOffProof,
-      milestones: milestones ?? this.milestones,
+      dropOffProof: dropOffProof,
+      milestones: milestones,
     );
   }
 
-// Static preset fixtures
+  // STATIC PRESET FIXTURES (For UI renders and viva demonstration)
+
   static const CorridorRouteModel defaultCorridor = CorridorRouteModel(
     merchantName: 'Bai Wei Mini Bowl',
     merchantHub: 'C180 Commercial Hub',
@@ -214,24 +291,6 @@ class OrderTrackingModel {
     distanceKm: 0.6,
     etaMinutes: 7,
     isDirectUnstacked: true,
-  );
-
-  // Custom Rider Example 1
-  static const CourierProfileModel courierHarith = CourierProfileModel(
-    name: 'Muhammad Harith',
-    plateNumber: 'BQK 4812',
-    vehicleType: 'Yamaha Y15ZR',
-    phoneNumber: '+60 12-481 2940',
-    hubAffiliation: 'Cheras Courier Direct Fleet',
-  );
-
-  // Custom Rider Example 2
-  static const CourierProfileModel courierAriff = CourierProfileModel(
-    name: 'Ariff Izzan',
-    plateNumber: 'VDE 8891',
-    vehicleType: 'Honda RS150R',
-    phoneNumber: '+60 17-293 8812',
-    hubAffiliation: 'Cyberjaya Fleet',
   );
 
   static const DropOffProofModel defaultProof = DropOffProofModel(
@@ -268,86 +327,74 @@ class OrderTrackingModel {
     ),
   ];
 
-  /// Preset 1: Stage 1/4 - Confirmed (Order Logged)
-  static const OrderTrackingModel mockStage1 = OrderTrackingModel(
-    orderId: 'E2E-89241',
-    currentStage: OrderTrackingStage.confirmed,
-    etaTimeDisplay: '12:50 PM',
-    etaMinutesRemaining: 14,
-    etaBadgeLabel: 'Order Logged',
-    stageDescription: 'Order received. Kitchen has queued the ticket for wok prep.',
-    is100mBeaconActive: false,
-    residenceLabel: 'Landed Villa',
-    corridor: defaultCorridor,
-    courier: courierHarith,
-    dropOffProof: defaultProof,
-    milestones: standardMilestones,
-  );
-
-  /// Preset 2: Stage 2/4 - Preparing (On Schedule)
   static const OrderTrackingModel mockStage2 = OrderTrackingModel(
     orderId: 'E2E-89241',
     currentStage: OrderTrackingStage.preparing,
+    customerName: 'Joel Ira',
+    customerPhone: '+60 12-892 4118',
+    totalPrice: 19.80,
+    location: 'Gate Pillar 2 (Table)',
+    isPickedUp: false,
     etaTimeDisplay: '12:45 PM',
     etaMinutesRemaining: 8,
     etaBadgeLabel: 'On Schedule',
     stageDescription: 'Kitchen is packing your bowls. Rider dispatched upon packaging completion.',
-    is100mBeaconActive: false,
-    residenceLabel: 'Landed Villa',
-    corridor: defaultCorridor,
-    courier: courierHarith,
-    dropOffProof: defaultProof,
-    milestones: standardMilestones,
   );
 
-  /// Preset 3: Stage 3/4 - On the Way (Rider in Transit + 100m Beacon Triggered)
+  static const OrderTrackingModel mockStage1 = OrderTrackingModel(
+    orderId: 'E2E-89241',
+    currentStage: OrderTrackingStage.confirmed,
+    customerName: 'Joel Ira',
+    customerPhone: '+60 12-892 4118',
+    totalPrice: 19.80,
+    location: 'Gate Pillar 2 (Table)',
+    isPickedUp: false,
+    etaTimeDisplay: '14 mins',
+    etaMinutesRemaining: 14,
+    etaBadgeLabel: 'Order Logged',
+    stageDescription: 'Order received. Kitchen has queued your ticket for prep.',
+  );
+
   static const OrderTrackingModel mockStage3 = OrderTrackingModel(
     orderId: 'E2E-89241',
     currentStage: OrderTrackingStage.almostDone,
-    etaTimeDisplay: '12:40 PM',
+    customerName: 'Joel Ira',
+    customerPhone: '+60 12-892 4118',
+    totalPrice: 19.80,
+    location: 'Gate Pillar 2 (Table)',
+    isPickedUp: true,
+    etaTimeDisplay: '3 mins',
     etaMinutesRemaining: 3,
     etaBadgeLabel: 'Rider In Transit',
     stageDescription: 'Dishes boxed! Rider picked up order and is navigating to your location.',
     is100mBeaconActive: true,
-    residenceLabel: 'Landed Villa',
-    corridor: defaultCorridor,
-    courier: courierHarith,
-    dropOffProof: defaultProof,
-    milestones: standardMilestones,
   );
 
-  /// Preset 4: Stage 4/4 - Delivered (Completed)
   static const OrderTrackingModel mockStage4 = OrderTrackingModel(
     orderId: 'E2E-89241',
     currentStage: OrderTrackingStage.delivered,
-    etaTimeDisplay: '12:44 PM',
+    customerName: 'Joel Ira',
+    customerPhone: '+60 12-892 4118',
+    totalPrice: 19.80,
+    location: 'Gate Pillar 2 (Table)',
+    isPickedUp: true,
+    etaTimeDisplay: 'Delivered',
     etaMinutesRemaining: 0,
     etaBadgeLabel: 'Delivered',
     stageDescription: 'Package dropped safely on Gate Pillar 2 drop table. Photo proof logged.',
-    is100mBeaconActive: false,
-    residenceLabel: 'Landed Villa',
-    corridor: defaultCorridor,
-    courier: courierHarith,
-    dropOffProof: defaultProof,
-    milestones: standardMilestones,
   );
 }
 
-
-
-// MINUTE-BASED ETA CALCULATOR
+// 3. ETA CALCULATOR
 
 class EtaCalculator {
-  /// Realistic urban motorcycle speed in Cheras / Cyberjaya (~3 mins per km)
-  /// + 2 minutes fixed buffer for traffic lights & guardhouse registration.
   static int calculateTransitMinutes(double distanceKm) {
     const double minutesPerKm = 3.0;
     const int bufferMinutes = 2;
     final int transitMinutes = ((distanceKm * minutesPerKm) + bufferMinutes).round();
-    return transitMinutes.clamp(2, 25); // Between 2 to 25 minutes
+    return transitMinutes.clamp(2, 25);
   }
 
-  /// Calculates total order ETA: Kitchen Prep + Road Transit
   static int calculateTotalEtaMinutes({
     required double distanceKm,
     int kitchenPrepMinutes = 5,

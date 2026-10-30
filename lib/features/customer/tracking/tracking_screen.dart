@@ -11,17 +11,24 @@ import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
 import 'package:easy2eat/services/maps/map_api_service.dart';
 import 'package:easy2eat/shared/widgets/ChatWindow/ui.dart';
 import 'package:easy2eat/services/orders/order_sync_service.dart';
+import 'package:easy2eat/features/customer/models/customer_profile_model.dart';
+import 'package:easy2eat/features/customer/settings/widgets/customer_profile_screen.dart';
 
 class CustomerTrackingScreen extends StatefulWidget {
-  const CustomerTrackingScreen({super.key});
+  final String orderId;
+
+  const CustomerTrackingScreen({
+    super.key,
+    required this.orderId,
+  });
 
   @override
   State<CustomerTrackingScreen> createState() => _CustomerTrackingScreenState();
 }
 
 class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
-  // Active Tracking Model
-  OrderTrackingModel _order = OrderTrackingModel.mockStage2;
+  // 3. Initialize dynamically later
+  late OrderTrackingModel _order;
 
   // Minute-based simulation states
   bool _isPaused = false;
@@ -56,13 +63,18 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
     super.initState();
     _sheetController.addListener(() => setState(() {}));
 
+    // Start at Stage 1 using the newly created Order ID
+    _order = OrderTrackingModel.mockStage1.copyWith(
+      orderId: widget.orderId,
+    );
+
     final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
     final totalMins = 5 + transitMins;
 
     _order = _order.copyWith(
       etaMinutesRemaining: totalMins,
       etaTimeDisplay: _calculateEtaClockTime(totalMins),
-      etaBadgeLabel: 'On Schedule',
+      etaBadgeLabel: 'Order Logged',
     );
 
     _startMinuteTicker();
@@ -245,6 +257,24 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Always sync the active corridor with the latest Sub-Pin set in Settings
+    final activeCorridor = _order.corridor.copyWith(
+      dropOffLandmark: OrderTrackingModel.defaultSubPinLandmark,
+    );
+
+    // 2. Dynamically update Milestone 4 text with the landmark
+    final updatedMilestones = _order.milestones.map((m) {
+      if (m.stageIndex == 4) {
+        return TrackingMilestoneModel(
+          stageIndex: m.stageIndex,
+          title: m.title,
+          subtitle: 'Verified with GPS drop-off photo proof at ${OrderTrackingModel.defaultSubPinLandmark}.',
+          completedTimestamp: m.completedTimestamp,
+        );
+      }
+      return m;
+    }).toList();
+
     // Current sheet size tracking for smooth zero-bleed gating
     final double currentExtent =
     _sheetController.isAttached ? _sheetController.size : _minSheetExtent;
@@ -261,7 +291,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
           // LAYER 1: INTERACTIVE MAP VIEWPORT (Pan & Zoom Enabled)
           Positioned.fill(
             child: CustomerLiveTrackingMapView(
-              corridor: _order.corridor,
+              corridor: activeCorridor,
               stage: _order.currentStage,
               etaMinutesRemaining: _order.etaMinutesRemaining,
               onRouteLoaded: (RouteInfo route) {
@@ -299,12 +329,13 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     showBackButton: false,
                     showProfileButton: true,
                   ),
-                  if (_order.is100mBeaconActive)
+                  // Renders ONLY if the delivery milestone triggers it AND the user hasn't disabled it in Settings:
+                  if (_order.is100mBeaconActive && OrderTrackingModel.isProximityBeaconEnabled)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: CustomerProximityBeaconBanner(
                         residenceLabel: _order.residenceLabel,
-                        dropOffLandmark: _order.corridor.dropOffLandmark,
+                        dropOffLandmark: activeCorridor.dropOffLandmark,
                       ),
                     ),
                 ],
@@ -389,7 +420,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                             // Component 2: Sideways 4-Stage Stepper
                             CustomerStagePipelineStepper(
                               currentStage: _order.currentStage,
-                              milestones: _order.milestones,
+                              milestones: updatedMilestones,
                             ),
 
                             const SizedBox(height: 15),
