@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
+import 'package:easy2eat/features/customer/customer_shell_screen.dart';
+import 'package:easy2eat/features/rider/presentation/RiderHomePage/ui.dart';
 
 import '../../../services/firebase/create_user_profile.dart';
 
@@ -27,7 +30,7 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
     super.dispose();
   }
 
-  Future<void>  _handleLogin() async {
+  Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -41,18 +44,46 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
 
         if (!mounted) return;
 
+        // 1. Sync UserSession
+        UserSession.setRole(getRole?.toLowerCase());
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login successful!')),
         );
 
-        if (getRole == 'rider') {
-          Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
-        } else if (getRole == 'customer') {
-          // Navigator.pushReplacementNamed(context, AppRoutes.customerHome);
+        // 2. Navigate correctly according to role
+        if (getRole == 'customer') {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CustomerShellScreen(),
+            ),
+                (route) => false,
+          );
+        } else if (getRole == 'rider') {
+          // If named routing isn't set up in MaterialApp, push directly:
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RiderHomePage(), // <-- Replace with your teammate's Rider Home class name
+            ),
+                (route) => false,
+          );
         } else if (getRole == 'vendor') {
-          // Navigator.pushReplacementNamed(context, AppRoutes.vendorHome);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vendor portal is configured on the Vendor build.'),
+              backgroundColor: ThemesColors.brandOrange,
+            ),
+          );
         } else {
-          Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CustomerShellScreen(),
+            ),
+                (route) => false,
+          );
         }
       } catch (e) {
         if (mounted) {

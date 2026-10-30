@@ -31,6 +31,16 @@ class _CustomerShellScreenState extends State<CustomerShellScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant CustomerShellScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      setState(() {
+        _currentIndex = widget.initialIndex;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // 2. Moved pages inside build() to access widget.activeOrderId dynamically
     final List<Widget> pages = <Widget>[
@@ -38,7 +48,7 @@ class _CustomerShellScreenState extends State<CustomerShellScreen> {
       const CustomerCartCheckoutScreen(),
       CustomerTrackingScreen(
         // Uses the real order ID if checked out, else falls back to mock for normal tab tapping
-        orderId: widget.activeOrderId ?? 'E2E-89241',
+        orderId: widget.activeOrderId ?? 'ORD-69643270',
       ),
       const CustomerSettingsScreen(),
     ];

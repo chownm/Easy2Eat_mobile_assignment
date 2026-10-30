@@ -71,13 +71,23 @@ class SharedCustomerTopBar extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(dialogContext);
+              // 1. Pop dialog via rootNavigator
+              Navigator.of(dialogContext, rootNavigator: true).pop();
+
+              // 2. Sign out
               await UserSession.logout();
+
+              // 3. Clear focus
+              FocusManager.instance.primaryFocus?.unfocus();
+
+              // 4. Push on post-frame callback
               if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()), // or LoginScreen()
-                      (route) => false,
-                );
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                        (Route<dynamic> route) => false,
+                  );
+                });
               }
             },
             style: ElevatedButton.styleFrom(

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/core/constants/user_session.dart';
+import 'package:easy2eat/features/customer/customer_shell_screen.dart';
 import '../../../services/firebase/auth_service.dart';
+import 'email_login_screen.dart';
+import 'email_signup_screen.dart';
 import 'loginButton.dart';
 
 class LoginPage extends StatefulWidget {
@@ -33,8 +36,21 @@ class _LoginPageState extends State<LoginPage> {
 
         if (role == 'rider') {
           Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+        } else if (role == 'vendor') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vendor portal is configured on the Vendor build.'),
+              backgroundColor: ThemesColors.brandOrange,
+            ),
+          );
         } else {
-          Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CustomerShellScreen(),
+            ),
+                (route) => false,
+          );
         }
       }
     } catch (e) {
@@ -147,14 +163,22 @@ class _LoginPageState extends State<LoginPage> {
                       LoginButton.email(
                         label: "Log In with Email",
                         onPressed: () {
-                          Navigator.pushNamed(context, AppRoutes.emailLogin);
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              builder: (context) => const EmailLoginPage(),
+                            ),
+                          );
                         },
                       ),
                       const SizedBox(height: 12),
                       LoginButton.email(
                         label: "Sign Up with Email",
                         onPressed: () {
-                          Navigator.pushNamed(context, AppRoutes.emailSignup);
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              builder: (context) => const EmailSignupPage(),
+                            ),
+                          );
                         },
                       ),
                       const SizedBox(height: 12),

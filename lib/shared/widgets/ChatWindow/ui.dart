@@ -12,12 +12,14 @@ class ChatWindow extends StatefulWidget {
   final String title;
   final String subtitle;
   final String? chatRoomId;
+  final bool? isCustomerView; // true when opened by Customer, false when by Rider
 
   const ChatWindow({
     super.key,
-    this.title = 'Customer',
-    this.subtitle = 'Active Order • On Delivery',
+    this.title = 'Muhammad Harith',
+    this.subtitle = 'BQK 4812 • On Delivery',
     this.chatRoomId,
+    this.isCustomerView,
   });
 
   @override
@@ -26,7 +28,14 @@ class ChatWindow extends StatefulWidget {
 
 class _ChatWindowState extends State<ChatWindow> {
   final String activeUid = UserSession.currentUid ?? '';
-  final String activeRole = (UserSession.role ?? 'rider').toLowerCase();
+
+  // Determine role based on isCustomerView flag first
+  String get activeRole {
+    if (widget.isCustomerView == true) return 'customer';
+    if (widget.isCustomerView == false) return 'rider';
+    return (UserSession.role ?? 'rider').toLowerCase();
+  }
+
   final GoogleTranslator _translator = GoogleTranslator();
   String _targetLanguage = 'en';
 
@@ -127,8 +136,7 @@ class _ChatWindowState extends State<ChatWindow> {
                   final String senderRole = (data['senderRole'] ?? '').toString().toLowerCase();
 
                   final bool isSender = (activeUid.isNotEmpty && senderUid == activeUid) ||
-                      (senderRole.isNotEmpty && senderRole == activeRole) ||
-                      (data['isSender'] ?? true);
+                      (senderRole.isNotEmpty && senderRole == activeRole);
 
                   return ChatMessageModel(
                     message: data['message'] ?? '',

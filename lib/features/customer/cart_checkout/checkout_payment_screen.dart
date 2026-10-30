@@ -45,7 +45,7 @@ class _CustomerCheckoutPaymentScreenState
 
     try {
       // 1. Generate a clean Order ID
-      final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+      final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5, 13)}';
 
       // 2. Format cart items into the single String expected by the Vendor's schema
       final String orderItemsString = widget.cartItems
@@ -54,15 +54,20 @@ class _CustomerCheckoutPaymentScreenState
 
       // 3. Build the payload exactly matching the Vendor's OrderModel
       final Map<String, dynamic> orderPayload = {
-        'orderID': orderId,
+        'orderId': orderId,    // For Tracking/Rider sync
+        'orderID': orderId,    // Preserved for Vendor schema
         'qrID': orderId,
-        'customerName': 'Joel Ira', // Hardcoded temporarily until Profile module
+        'customerName': 'Joel Ira',
         'customerPhone': '+60 12-892 4118',
         'orderItems': orderItemsString,
         'totalPrice': widget.totalAmount,
         'status': 'pending',
-        'timeAgo': '',
-        'location': CartItemModel.mockDropOffPin.microPinLandmark, // Sub-pin drop-off
+        'stage': 'preparing',  // Stage 1 initial state
+        'isPaused': false,
+        'pauseReason': '',
+        'statusDescription': 'Order received. Kitchen has queued your ticket for prep.',
+        'timeAgo': 'Just now',
+        'location': CartItemModel.mockDropOffPin.microPinLandmark,
         'createdAt': DateTime.now().toIso8601String(),
         'assignedRiderId': null,
         'riderName': null,
@@ -92,7 +97,7 @@ class _CustomerCheckoutPaymentScreenState
         MaterialPageRoute(
           builder: (context) => CustomerShellScreen(
             initialIndex: 2, // Forces the bottom nav to start on Tracking Tab
-            activeOrderId: orderId, // Passes your live Firestore ID
+            activeOrderId: orderId, // Passes live Firestore ID
           ),
         ),
             (route) => false, // Prevents Android back-button from returning to checkout

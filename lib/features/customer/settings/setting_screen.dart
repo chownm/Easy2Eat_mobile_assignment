@@ -143,17 +143,23 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(dialogContext);
+              // 1. Explicitly pop the dialog using its own dialogContext with rootNavigator
+              Navigator.of(dialogContext, rootNavigator: true).pop();
 
-              // 1. Properly sign out via your UserSession method
+              // 2. Sign out
               await UserSession.logout();
 
-              // 2. Navigate back to Login and clear the navigation backstack
+              // 3. Clear any active soft keyboard / text focus traps
+              FocusManager.instance.primaryFocus?.unfocus();
+
+              // 4. Schedule navigation on the next frame tick to ensure the modal barrier is unmounted
               if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                      (route) => false,
-                );
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                        (Route<dynamic> route) => false,
+                  );
+                });
               }
             },
             style: ElevatedButton.styleFrom(
