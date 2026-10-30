@@ -11,11 +11,13 @@ import 'ChatWindowBody.dart';
 class ChatWindow extends StatefulWidget {
   final String title;
   final String subtitle;
+  final String? chatRoomId;
 
   const ChatWindow({
     super.key,
     this.title = 'Customer',
     this.subtitle = 'Active Order • On Delivery',
+    this.chatRoomId,
   });
 
   @override
@@ -24,8 +26,30 @@ class ChatWindow extends StatefulWidget {
 
 class _ChatWindowState extends State<ChatWindow> {
   final String activeUid = UserSession.currentUid ?? '';
+  final String activeRole = (UserSession.role ?? 'rider').toLowerCase();
   final GoogleTranslator _translator = GoogleTranslator();
   String _targetLanguage = 'en';
+
+  /// Determines collection name: 'vendor_chats' or 'customer_chats'
+  String get _collectionName {
+    if (widget.title.toLowerCase().contains('vendor')) {
+      return 'vendor_chats';
+    }
+    return 'customer_chats';
+  }
+
+  /// Extracts clean Order ID document (e.g., "ORD-1234") without prefix fluff
+  String get _orderDocumentId {
+    if (widget.chatRoomId != null && widget.chatRoomId!.isNotEmpty) {
+      return widget.chatRoomId!;
+    }
+    final regex = RegExp(r'(ORD[-_]?\d+)|\b\d+\b');
+    final match = regex.firstMatch(widget.title);
+    if (match != null) {
+      return match.group(0)!;
+    }
+    return widget.title;
+  }
 
   String get _currentTimeString => DateFormat('hh:mm a').format(DateTime.now());
 
@@ -35,15 +59,15 @@ class _ChatWindowState extends State<ChatWindow> {
     final currentTime = _currentTimeString;
 
     try {
+      // Write directly to vendor_chats/{orderId}/messages or customer_chats/{orderId}/messages
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(activeUid)
-          .collection('chats')
-          .doc(widget.title)
+          .collection(_collectionName)
+          .doc(_orderDocumentId)
           .collection('messages')
           .add({
         'message': text.trim(),
-        'isSender': true,
+        'senderUid': activeUid,
+        'senderRole': activeRole,
         'time': currentTime,
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -86,14 +110,12 @@ class _ChatWindowState extends State<ChatWindow> {
           ),
           const Divider(height: 1, thickness: 1),
 
-          // Real-time messages list from Firestore
+          // Real-time messages stream from vendor_chats or customer_chats
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(activeUid)
-                  .collection('chats')
-                  .doc(widget.title)
+                  .collection(_collectionName)
+                  .doc(_orderDocumentId)
                   .collection('messages')
                   .orderBy('timestamp', descending: false)
                   .snapshots(),
@@ -101,9 +123,16 @@ class _ChatWindowState extends State<ChatWindow> {
                 final docs = snapshot.data?.docs ?? [];
                 final rawMessages = docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
+                  final String senderUid = data['senderUid'] ?? '';
+                  final String senderRole = (data['senderRole'] ?? '').toString().toLowerCase();
+
+                  final bool isSender = (activeUid.isNotEmpty && senderUid == activeUid) ||
+                      (senderRole.isNotEmpty && senderRole == activeRole) ||
+                      (data['isSender'] ?? true);
+
                   return ChatMessageModel(
                     message: data['message'] ?? '',
-                    isSender: data['isSender'] ?? true,
+                    isSender: isSender,
                     time: data['time'] ?? '',
                   );
                 }).toList();
