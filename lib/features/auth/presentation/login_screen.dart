@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
+import '../../../services/firebase/auth_service.dart';
 import 'loginButton.dart';
 
 class LoginPage extends StatefulWidget {
@@ -11,13 +13,45 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String _dropdownValue = "English";
+  bool _isLoading = false;
 
-  void dropdownCallback(String? selectedValue) {
-    if (selectedValue != null) {
-      setState(() {
-        _dropdownValue = selectedValue;
-      });
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final success = await AuthService.googleSignIn();
+      if (success && mounted) {
+        final role = UserSession.role;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google Sign-In successful!'),
+            backgroundColor: ThemesColors.success,
+          ),
+        );
+
+        if (role == 'rider') {
+          Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+        } else {
+          Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Sign-In failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -28,68 +62,7 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: Center(
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(
-                  Icons.close,
-                  size: 20,
-                  color: ThemesColors.darkCharcoal,
-                ),
-                onPressed: () {
-                  Navigator.maybePop(context);
-                },
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _dropdownValue,
-                    dropdownColor: ThemesColors.darkCharcoal,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    icon: const Icon(
-                      Icons.arrow_drop_down,
-                      size: 20,
-                      color: Colors.white,
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: "English", child: Text("English")),
-                      DropdownMenuItem(value: "Chinese", child: Text("Chinese")),
-                      DropdownMenuItem(value: "Malay", child: Text("Malay")),
-                      DropdownMenuItem(value: "Others", child: Text("Others")),
-                    ],
-                    onChanged: dropdownCallback,
-                  ),
-                ),
-              ),
-            ),
-          )
-        ],
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Padding(
@@ -161,9 +134,15 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      LoginButton.google(onPressed: () {}),
-                      const SizedBox(height: 12),
-                      LoginButton.facebook(onPressed: () {}),
+                      if (_isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: CircularProgressIndicator(color: ThemesColors.brandOrange),
+                          ),
+                        )
+                      else
+                        LoginButton.google(onPressed: _handleGoogleSignIn),
                       const SizedBox(height: 12),
                       LoginButton.email(
                         label: "Log In with Email",

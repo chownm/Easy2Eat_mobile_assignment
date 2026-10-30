@@ -57,7 +57,6 @@ class OrderDetailState extends State<OrderDetail> {
       }
     } catch (_) {}
 
-    // Return empty list so everything is based 100% on Firestore!
     return [];
   }
 
@@ -148,7 +147,7 @@ class OrderDetailState extends State<OrderDetail> {
     try {
       final uid = UserSession.currentUid ?? 'guest_rider';
       final now = TimeOfDay.now();
-      final formattedTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      final currentTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
       // 1. Update order status to delivered in Firestore
       await FirebaseFirestore.instance
@@ -169,8 +168,7 @@ class OrderDetailState extends State<OrderDetail> {
           .add({
         'message': 'Food is Delivered',
         'isSender': true,
-        'time': formattedTime,
-        'status': 'Sent',
+        'time': currentTime,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -278,6 +276,3 @@ class OrderDetailState extends State<OrderDetail> {
     );
   }
 }
-
-// Alias for backwards compatibility
-typedef orderDetail = OrderDetail;

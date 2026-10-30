@@ -59,7 +59,7 @@ class LoginButton {
                 ),
               ),
             ),
-            const SizedBox(width: 22), // Counterbalance icon width to keep text centered
+            const SizedBox(width: 22),
           ],
         ),
       ),
@@ -78,32 +78,6 @@ class LoginButton {
     );
   }
 
-  /// Shortcut for Apple Login
-  static Widget apple({VoidCallback? onPressed, String label = "Continue with Apple"}) {
-    return socialButton(
-      label: label,
-      iconName: "apple",
-      icon: Icons.apple,
-      onPressed: onPressed,
-      backgroundColor: const Color(0xFF2C2C2E),
-      textColor: Colors.white,
-      borderColor: const Color(0xFF2C2C2E),
-    );
-  }
-
-  /// Shortcut for Facebook Login
-  static Widget facebook({VoidCallback? onPressed, String label = "Continue with Facebook"}) {
-    return socialButton(
-      label: label,
-      iconName: "facebook",
-      icon: Icons.facebook,
-      onPressed: onPressed,
-      backgroundColor: const Color(0xFF1877F2),
-      textColor: Colors.white,
-      borderColor: const Color(0xFF1877F2),
-    );
-  }
-
   /// Shortcut for Email Login
   static Widget email({VoidCallback? onPressed, String label = "Continue with Email"}) {
     return socialButton(
@@ -115,19 +89,4 @@ class LoginButton {
       borderColor: const Color(0xFFD0D0D0),
     );
   }
-
-  /// Shortcut for Phone Login
-  static Widget phone({VoidCallback? onPressed, String label = "Continue with Phone Number"}) {
-    return socialButton(
-      label: label,
-      icon: Icons.phone_outlined,
-      onPressed: onPressed,
-      backgroundColor: Colors.white,
-      textColor: ThemesColors.darkCharcoal,
-      borderColor: const Color(0xFFD0D0D0),
-    );
-  }
 }
-
-// Alias for class name compatibility
-typedef Loginbutton = LoginButton;

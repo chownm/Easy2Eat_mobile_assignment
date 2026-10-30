@@ -53,7 +53,7 @@ class _RiderHomePageState extends State<RiderHomePage> {
             ),
             const SizedBox(height: 12),
             // Scrollable Order List
-            Expanded(child: orderDetail(key: _orderDetailKey)),
+            Expanded(child: OrderDetail(key: _orderDetailKey)),
           ],
         ),
       ),

@@ -1,84 +1,69 @@
+import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
-import 'package:easy2eat/features/rider/presentation/riderAppBar.dart';
 import 'package:easy2eat/shared/widgets/settings/presentation/settingsTileItem.dart';
-import 'package:easy2eat/shared/widgets/settings/presentation/settingsSectionCard.dart';
 import 'package:flutter/material.dart';
-import 'package:easy2eat/core/enum/user_role.dart';
-import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
-  int get _currentIndex => 3;
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const RiderAppBar(title: "Settings"),
-      body: Center(
-          child: Scrollbar(
-              child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          SettingsSectionCard(
-                            title: 'Account & Security',
-                            children: [
-                              SettingsTileItem(
-                                icon: Icons.person_outline,
-                                title: 'Profile Details',
-                                subtitle: 'Name, phone number, and email',
-                                onTap: () {
-                                  Navigator.pushNamed(context, AppRoutes.profileDetails);
-                                },
-                              ),
-                              SettingsTileItem(
-                                icon: Icons.lock_outline,
-                                title: 'Password & Security',
-                                subtitle: 'Manage password and authentication',
-                                onTap: () {},
-                              ),
-                            ],
-                          ),
-                          SettingsSectionCard(
-                            title: 'Support & Term',
-                            children: [
-                              SettingsTileItem(
-                                icon: Icons.question_answer,
-                                title: 'Help Center & Support',
-                                subtitle: 'Live chat, FAQs, and contact us',
-                                onTap: () {},
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ]
-              )
-          )
-      ),
-      bottomNavigationBar: SharedNavigationBar(
-        currentIndex: _currentIndex,
-        role: UserRole.rider,
-        onTap: (int index) {
-          if (index == 0) {
-            Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
-          }
-          if (index == 1) {
-            Navigator.pushReplacementNamed(context, AppRoutes.riderMaps);
-          }
-          if (index == 2) {
-            Navigator.pushReplacementNamed(context, AppRoutes.riderChat);
-          }
-        },
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        child: Column(
+          children: [
+            SettingsTileItem(
+              title: "Profile details",
+              icon: Icons.person_outline,
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.profileDetails);
+              },
+            ),
+            const SizedBox(height: 12),
+            SettingsTileItem(
+              title: "Password setting",
+              icon: Icons.lock_outline,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password reset link sent to your email.')),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  UserSession.logout();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRoutes.login,
+                    (route) => false,
+                  );
+                },
+                icon: const Icon(Icons.logout, color: Colors.red),
+                label: const Text(
+                  "Log Out",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-
-// Alias for backwards compatibility
-typedef settingPage = SettingsPage;

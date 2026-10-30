@@ -78,34 +78,77 @@ class _QrCodeScanState extends State<QrCodeScan> {
             onDetect: (capture) async {
               final List<Barcode> barcodes = capture.barcodes;
               for (final barcode in barcodes) {
-                final String? code = barcode.rawValue;
-                if (code != null && code.isNotEmpty) {
+                final String? scannedCode = barcode.rawValue?.trim();
+                if (scannedCode != null && scannedCode.isNotEmpty) {
                   cameraController.stop();
-                  ActiveDeliveryState.markVendorQrScanned(); // Scanned vendor QR code!
 
-                  // Update Firestore order status
                   try {
-                    await FirebaseFirestore.instance
+                    // 1. Try finding order in Firestore by scanned code or active delivery fallback
+                    var doc = await FirebaseFirestore.instance
                         .collection('orders')
-                        .doc(ActiveDeliveryState.currentDeliveryNumber)
-                        .set({
-                      'qrScanned': true,
-                      'status': 'vendor_qr_scanned',
-                    }, SetOptions(merge: true));
-                  } catch (_) {}
+                        .doc(scannedCode)
+                        .get();
 
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'QR Code verified for ${ActiveDeliveryState.currentDeliveryNumber}!',
+                    if (!doc.exists) {
+                      doc = await FirebaseFirestore.instance
+                          .collection('orders')
+                          .doc(ActiveDeliveryState.currentDeliveryNumber)
+                          .get();
+                    }
+
+                    if (doc.exists && doc.data() != null) {
+                      final String matchedId = doc.id;
+
+                      // Update the matched order in Firestore
+                      await FirebaseFirestore.instance
+                          .collection('orders')
+                          .doc(matchedId)
+                          .set({
+                        'qrScanned': true,
+                        'status': 'vendor_qr_scanned',
+                      }, SetOptions(merge: true));
+
+                      // Automatically set matched order as current active delivery
+                      ActiveDeliveryState.currentDeliveryNumber = matchedId;
+                      ActiveDeliveryState.markVendorQrScanned();
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'QR Code verified for $matchedId!',
+                            ),
+                            backgroundColor: ThemesColors.success,
+                          ),
+                        );
+                        Navigator.pop(context, matchedId);
+                      }
+                      break;
+                    } else {
+                      // Show error if scanned QR code doesn't match any accepted order
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Invalid QR Code! Does not match any accepted order.',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        cameraController.start(); // Resume scanning
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Verification error: $e'),
+                          backgroundColor: Colors.red,
                         ),
-                        backgroundColor: ThemesColors.success,
-                      ),
-                    );
-                    Navigator.pop(context, code);
+                      );
+                      cameraController.start(); // Resume scanning
+                    }
                   }
-                  break;
                 }
               }
             },
