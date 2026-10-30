@@ -236,8 +236,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
         builder: (context) => ChatWindow(
           title: _order.courier.name,
           subtitle: '${_order.courier.plateNumber} • ${_order.courier.vehicleType}',
-          chatRoomId: 'order_${_order.orderId}',
-          isCustomerView: true,
         ),
       ),
     );

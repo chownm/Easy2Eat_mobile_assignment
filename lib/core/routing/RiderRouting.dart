@@ -7,8 +7,8 @@ import '../../features/rider/presentation/RiderHomePage/ui.dart';
 import '../../features/rider/presentation/RiderMapsPage/ui.dart';
 import '../../features/rider/presentation/RiderChat/ui.dart';
 import '../../features/rider/presentation/RiderDashBoard/ui.dart';
+import '../../features/rider/presentation/RiderSetting/ui.dart';
 import '../../shared/widgets/ChatWindow/ui.dart';
-import '../../shared/widgets/settings/presentation/ui.dart';
 import '../../shared/widgets/settings/presentation/ProfileDetails.dart';
 
 class AppRoutes {
@@ -46,20 +46,16 @@ class AppRouter {
       case AppRoutes.riderDashboard:
         return MaterialPageRoute(builder: (_) => const RiderDashBoard());
       case AppRoutes.settings:
-        return MaterialPageRoute(builder: (_) => const SettingsPage());
+        return MaterialPageRoute(builder: (_) => const RiderSettingPage());
       case AppRoutes.profileDetails:
         return MaterialPageRoute(builder: (_) => const ProfileDetailsPage());
       case AppRoutes.chatWindow:
         final chatTitle = settings.arguments as String? ?? 'Customer';
-        // Extracts order ID if present (e.g. from "Customer ORD-4568")
-        final cleanRoomId = 'order_${chatTitle.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
 
         return MaterialPageRoute(
           builder: (context) => ChatWindow(
             title: chatTitle,
             subtitle: 'Active Order • On Delivery',
-            chatRoomId: cleanRoomId, // Unique room for this customer!
-            isCustomerView: false,   // Sets role to Rider!
           ),
         );
       default:
