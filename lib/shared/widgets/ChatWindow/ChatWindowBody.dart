@@ -5,14 +5,12 @@ class ChatMessageModel {
   final bool isSender;
   final String time;
   final String? translation;
-  final String? status;
 
   ChatMessageModel({
     required this.message,
     required this.isSender,
     required this.time,
     this.translation,
-    this.status,
   });
 }
 
@@ -40,7 +38,6 @@ class ChatWindowBody extends StatelessWidget {
               message: msg.message,
               translation: msg.translation,
               time: msg.time,
-              status: msg.status,
             ),
           );
         },
@@ -54,7 +51,6 @@ class ChatTextBubble extends StatelessWidget {
   final String message;
   final String? translation;
   final String time;
-  final String? status;
 
   const ChatTextBubble({
     super.key,
@@ -62,7 +58,6 @@ class ChatTextBubble extends StatelessWidget {
     required this.message,
     this.translation,
     required this.time,
-    this.status,
   });
 
   @override
@@ -132,28 +127,10 @@ class ChatTextBubble extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          // Timestamp and Status
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                time,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              if (isSender && status != null) ...[
-                const Text(' • ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                Text(
-                  status!,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.done_all,
-                  size: 14,
-                  color: status == 'Read' ? const Color(0xFFD1533B) : Colors.grey,
-                ),
-              ],
-            ],
+          // Timestamp only
+          Text(
+            time,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
       ),

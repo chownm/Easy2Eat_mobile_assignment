@@ -13,8 +13,12 @@ class RiderDashBoard extends StatefulWidget {
 }
 
 class _RiderDashBoardState extends State<RiderDashBoard> {
+  final GlobalKey<DeliveryHistoryListState> _historyKey = GlobalKey<DeliveryHistoryListState>();
+  final GlobalKey<EarningSummaryState> _summaryKey = GlobalKey<EarningSummaryState>();
+
   void _refreshDashboard() {
-    setState(() {});
+    _historyKey.currentState?.refreshTrips();
+    _summaryKey.currentState?.refreshEarnings();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Dashboard refreshed from Firestore!')),
     );
@@ -50,7 +54,7 @@ class _RiderDashBoardState extends State<RiderDashBoard> {
             const SizedBox(height: 12),
 
             // Earning Summary Card (Calculates total earnings dynamically)
-            const EarningSummary(),
+            EarningSummary(key: _summaryKey),
             const SizedBox(height: 16),
 
             // Delivery History Section
@@ -65,9 +69,9 @@ class _RiderDashBoardState extends State<RiderDashBoard> {
             const SizedBox(height: 12),
 
             // Dynamic Delivery History List fetched from Firestore
-            const Expanded(
+            Expanded(
               child: Scrollbar(
-                child: DeliveryHistoryList(),
+                child: DeliveryHistoryList(key: _historyKey),
               ),
             ),
           ],

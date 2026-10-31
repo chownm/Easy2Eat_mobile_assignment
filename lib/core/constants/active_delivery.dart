@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
 class ActiveDeliveryState {
-  static String _latestViewedRouteDeliveryNumber = "Delivery #0001";
+  static String _latestViewedRouteDeliveryNumber = ""; // Starts empty (no default order)
   static bool _vendorQrScanned = false;
 
   /// Keeps the delivery number of the LATEST action in View Route!
   static String get latestViewedRoute {
     if (_latestViewedRouteDeliveryNumber.isEmpty ||
         _latestViewedRouteDeliveryNumber == "Unknown Delivery" ||
-        _latestViewedRouteDeliveryNumber == "Unknown User") {
-      return "Delivery #0001";
+        _latestViewedRouteDeliveryNumber == "Unknown User" ||
+        _latestViewedRouteDeliveryNumber == "Delivery #1234") {
+      return "";
     }
     return _latestViewedRouteDeliveryNumber;
   }

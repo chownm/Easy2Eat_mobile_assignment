@@ -177,6 +177,3 @@ class ChatTileItem extends StatelessWidget {
     );
   }
 }
-
-// Alias for backwards compatibility
-typedef ChatTitleItem = ChatTileItem;

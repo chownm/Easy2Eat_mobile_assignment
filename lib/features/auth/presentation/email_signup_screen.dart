@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
+import 'package:easy2eat/features/customer/customer_shell_screen.dart';
 import '../../../services/firebase/auth_service.dart';
 import '../../../services/firebase/create_user_profile.dart';
 
@@ -63,16 +65,26 @@ class _EmailSignupPageState extends State<EmailSignupPage> {
 
         if (!mounted) return;
 
+        // 1. Cache the active role in UserSession
+        UserSession.setRole(selectedRole?.toLowerCase());
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Account created successfully!')),
         );
 
-        if (selectedRole == 'rider') {
+        // 2. Navigate based on selected role
+        if (selectedRole == 'customer') {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CustomerShellScreen(),
+            ),
+                (route) => false,
+          );
+        } else if (selectedRole == 'rider') {
           Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
-        } else if (selectedRole == 'customer') {
-          // Navigator.pushReplacementNamed(context, AppRoutes.customerHome);
         } else if (selectedRole == 'vendor') {
-          // Navigator.pushReplacementNamed(context, AppRoutes.vendorHome);
+          Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
         }
       } catch (e) {
         if (mounted) {

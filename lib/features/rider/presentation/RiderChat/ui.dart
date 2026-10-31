@@ -88,9 +88,7 @@ class _RiderChatState extends State<RiderChat> {
                                   context,
                                   AppRoutes.chatWindow,
                                   arguments: chat.title,
-                                ).then((_) {
-                                  setState(() {});
-                                });
+                                );
                               },
                             );
                           }).toList(),

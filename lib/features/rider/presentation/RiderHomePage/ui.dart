@@ -5,7 +5,6 @@ import 'package:easy2eat/shared/widgets/shared_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import '../../../../core/enum/user_role.dart';
-import 'statusSwitch.dart';
 
 class RiderHomePage extends StatefulWidget {
   const RiderHomePage({super.key});
@@ -30,9 +29,6 @@ class _RiderHomePageState extends State<RiderHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Switch at top
-            const riderStatus(),
-            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -57,7 +53,7 @@ class _RiderHomePageState extends State<RiderHomePage> {
             ),
             const SizedBox(height: 12),
             // Scrollable Order List
-            Expanded(child: orderDetail(key: _orderDetailKey)),
+            Expanded(child: OrderDetail(key: _orderDetailKey)),
           ],
         ),
       ),

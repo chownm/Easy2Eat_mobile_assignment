@@ -4,7 +4,7 @@ import 'package:easy2eat/features/customer/models/merchant_model.dart';
 import 'package:easy2eat/features/customer/models/cart_item_model.dart';
 
 class ItemCustomizationSheet extends StatefulWidget {
-  final StaticMerchantModel merchant;
+  final MerchantModel merchant;
 
   const ItemCustomizationSheet ({
     super.key,

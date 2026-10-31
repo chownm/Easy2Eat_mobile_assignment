@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/features/customer/models/merchant_model.dart';
+import 'package:easy2eat/features/customer/models/customer_profile_model.dart';
+import 'package:easy2eat/features/customer/settings/widgets/customer_profile_screen.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
+import 'package:easy2eat/features/auth/presentation/login_screen.dart';
 
 class SharedCustomerTopBar extends StatelessWidget {
   final String title;
@@ -25,6 +29,77 @@ class SharedCustomerTopBar extends StatelessWidget {
     this.onLogoutTap,
     this.customActions,
   });
+
+  void _navigateToProfile(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CustomerEditProfileScreen(
+          initialProfile: CustomerProfileModel.mockJoelIra,
+        ),
+      ),
+    );
+  }
+
+  void _showDefaultLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: ThemesColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Log Out?',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: ThemesColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to log out of your session?',
+          style: TextStyle(
+            color: ThemesColors.darkCharcoal.withValues(alpha: 0.75),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: ThemesColors.darkCharcoal.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // 1. Pop dialog via rootNavigator
+              Navigator.of(dialogContext, rootNavigator: true).pop();
+
+              // 2. Sign out
+              await UserSession.logout();
+
+              // 3. Clear focus
+              FocusManager.instance.primaryFocus?.unfocus();
+
+              // 4. Push on post-frame callback
+              if (context.mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                        (Route<dynamic> route) => false,
+                  );
+                });
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ThemesColors.brandOrange,
+              foregroundColor: ThemesColors.textOnPrimary,
+            ),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,9 +198,17 @@ class SharedCustomerTopBar extends StatelessWidget {
                   ),
                   onSelected: (ProfileMenuAction action) {
                     if (action == ProfileMenuAction.viewProfile) {
-                      onProfileTap?.call();
+                      if (onProfileTap != null) {
+                        onProfileTap!.call();
+                      } else {
+                        _navigateToProfile(context);
+                      }
                     } else if (action == ProfileMenuAction.logOut) {
-                      onLogoutTap?.call();
+                      if (onLogoutTap != null) {
+                        onLogoutTap!.call();
+                      } else {
+                        _showDefaultLogoutDialog(context);
+                      }
                     }
                   },
                   itemBuilder: (BuildContext context) => <PopupMenuEntry<ProfileMenuAction>>[

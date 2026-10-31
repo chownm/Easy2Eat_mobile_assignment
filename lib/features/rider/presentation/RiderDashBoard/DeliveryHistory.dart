@@ -114,14 +114,44 @@ class DeliveryHistory extends StatelessWidget {
   }
 }
 
-/// Dynamic List Builder for Delivery History fetched from Firestore
-class DeliveryHistoryList extends StatelessWidget {
-  final Future<void> Function()? onRefresh;
+/// Dynamic List Builder for Delivery History fetched via FutureBuilder (triggered by RefreshButton)
+class DeliveryHistoryList extends StatefulWidget {
+  const DeliveryHistoryList({super.key});
 
-  const DeliveryHistoryList({
-    super.key,
-    this.onRefresh,
-  });
+  @override
+  State<DeliveryHistoryList> createState() => DeliveryHistoryListState();
+}
+
+class DeliveryHistoryListState extends State<DeliveryHistoryList> {
+  late Future<List<Map<String, dynamic>>> _tripsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tripsFuture = _fetchTrips();
+  }
+
+  void refreshTrips() {
+    setState(() {
+      _tripsFuture = _fetchTrips();
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchTrips() async {
+    final uid = UserSession.currentUid ?? 'guest_rider';
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('recent_trips')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
 
   void _showTripDetailsModal(BuildContext context, Map<String, dynamic> tripData) {
     showModalBottomSheet(
@@ -194,23 +224,16 @@ class DeliveryHistoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uid = UserSession.currentUid ?? 'guest_rider';
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('recent_trips')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _tripsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: ThemesColors.brandOrange));
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final trips = snapshot.data ?? [];
 
-        if (docs.isEmpty) {
+        if (trips.isEmpty) {
           return Center(
             child: Text(
               "No recent trip records yet.",
@@ -221,10 +244,9 @@ class DeliveryHistoryList extends StatelessWidget {
 
         return ListView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: docs.length,
+          itemCount: trips.length,
           itemBuilder: (context, index) {
-            final doc = docs[index];
-            final data = doc.data() as Map<String, dynamic>;
+            final data = trips[index];
 
             final deliveryId = data['deliveryId'] ?? "#E2E-${8842 - index}";
             final destination = data['destination'] ?? "Subang Jaya";

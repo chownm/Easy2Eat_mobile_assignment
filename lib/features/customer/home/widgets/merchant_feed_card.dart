@@ -5,7 +5,7 @@ import 'package:easy2eat/features/customer/cart_checkout/widgets/item_customizat
 
 // Component 5: Merchant Feed Card
 class CustomerMerchantFeedCard extends StatelessWidget {
-  final StaticMerchantModel merchant;
+  final MerchantModel merchant;
 
   const CustomerMerchantFeedCard({
     super.key,
@@ -24,8 +24,8 @@ class CustomerMerchantFeedCard extends StatelessWidget {
   ];
 
   // Hardcoded merchant feed records
-  static const List<StaticMerchantModel> merchantFeed = <StaticMerchantModel> [
-    StaticMerchantModel(
+  static const List<MerchantModel> merchantFeed = <MerchantModel> [
+    MerchantModel(
       id: 'merchant_v02_chagee',
       title: "CHAGEE - Trader Square",
       dualLangSubtitle: 'Chinese Milk Tea • 中国奶茶专卖店',
@@ -42,7 +42,7 @@ class CustomerMerchantFeedCard extends StatelessWidget {
       dailyPortionsRemaining: 36,
       isDirectUnstackedEligible: true,
     ),
-    StaticMerchantModel(
+    MerchantModel(
       id: 'merchant_v01_shinzushi',
       title: "Shin Zushi C180",
       dualLangSubtitle: 'Japanese Sushi • 日本寿司店',
@@ -59,7 +59,7 @@ class CustomerMerchantFeedCard extends StatelessWidget {
       dailyPortionsRemaining: 200,
       isDirectUnstackedEligible: true,
     ),
-    StaticMerchantModel(
+    MerchantModel(
       id: 'merchant_v03_baiwei',
       title: "Bai Wei Mini Bowl 百味小碗菜",
       dualLangSubtitle: 'Chinese Cuisine • 中国食品',
@@ -76,7 +76,7 @@ class CustomerMerchantFeedCard extends StatelessWidget {
       dailyPortionsRemaining: 24,
       isDirectUnstackedEligible: true,
     ),
-    StaticMerchantModel(
+    MerchantModel(
       id: 'merchant_v04_hanambbq',
       title: 'Hanam BBQ - Cheras C180',
       dualLangSubtitle: 'Korean BBQ • 韩国烧烤',

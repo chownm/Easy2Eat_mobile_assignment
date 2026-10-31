@@ -4,6 +4,7 @@ class UserSession {
   /// Automatically retrieves the active user's UID from Firebase Auth
   static String? get currentUid => FirebaseAuth.instance.currentUser?.uid;
 
+
   static String? _cachedRole;
   static String? get role => _cachedRole;
 

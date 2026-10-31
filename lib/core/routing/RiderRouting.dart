@@ -7,8 +7,8 @@ import '../../features/rider/presentation/RiderHomePage/ui.dart';
 import '../../features/rider/presentation/RiderMapsPage/ui.dart';
 import '../../features/rider/presentation/RiderChat/ui.dart';
 import '../../features/rider/presentation/RiderDashBoard/ui.dart';
+import '../../features/rider/presentation/RiderSetting/ui.dart';
 import '../../shared/widgets/ChatWindow/ui.dart';
-import '../../shared/widgets/settings/presentation/ui.dart';
 import '../../shared/widgets/settings/presentation/ProfileDetails.dart';
 
 class AppRoutes {
@@ -46,13 +46,18 @@ class AppRouter {
       case AppRoutes.riderDashboard:
         return MaterialPageRoute(builder: (_) => const RiderDashBoard());
       case AppRoutes.settings:
-        return MaterialPageRoute(builder: (_) => const SettingsPage());
+        return MaterialPageRoute(builder: (_) => const RiderSettingPage());
       case AppRoutes.profileDetails:
         return MaterialPageRoute(builder: (_) => const ProfileDetailsPage());
       case AppRoutes.chatWindow:
-        final args = settings.arguments;
-        final String chatTitle = (args is String && args.isNotEmpty) ? args : 'Chat';
-        return MaterialPageRoute(builder: (_) => ChatWindow(title: chatTitle));
+        final chatTitle = settings.arguments as String? ?? 'Customer';
+
+        return MaterialPageRoute(
+          builder: (context) => ChatWindow(
+            title: chatTitle,
+            subtitle: 'Active Order • On Delivery',
+          ),
+        );
       default:
         return MaterialPageRoute(builder: (_) => const RiderHomePage());
     }
