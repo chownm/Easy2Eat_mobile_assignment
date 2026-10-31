@@ -8,6 +8,7 @@ class OrderQrDialogWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the selected order for QR viewing
     final order = ref.watch(selectedOrderForQrProvider);
 
     if (order == null) {
@@ -86,7 +87,7 @@ class OrderQrDialogWidget extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // Render QR Code Widget
+          // Render QR Code Widget using OrderQRGenerator
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -108,73 +109,29 @@ class OrderQrDialogWidget extends ConsumerWidget {
               height: 1.3,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Sync to Database Action Button
-          Consumer(
-            builder: (context, ref, child) {
-              final storageState = ref.watch(qrStorageProvider);
-              final isLoading =
-                  storageState.status == QrStorageStatus.loading;
-              final isSuccess =
-                  storageState.status == QrStorageStatus.success;
-
-              return SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          final success = await ref
-                              .read(qrStorageProvider.notifier)
-                              .saveOrderQrToDatabase(order);
-                          if (success && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Order QR synced to database!'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
-                  icon: isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Icon(
-                          isSuccess
-                              ? Icons.check_circle
-                              : Icons.cloud_upload_outlined,
-                          size: 18,
-                        ),
-                  label: Text(
-                    isLoading
-                        ? 'Saving...'
-                        : (isSuccess
-                            ? 'Saved to Database'
-                            : 'Sync to Database'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isSuccess ? Colors.green : Colors.black,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
+          // Close / Done Action Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text(
+                'Done',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
           ),
         ],
       ),
