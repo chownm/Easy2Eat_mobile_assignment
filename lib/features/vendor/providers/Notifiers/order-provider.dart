@@ -1,53 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
 
-class orderListNotifier extends Notifier<List<OrderModel>> {
+class OrderListNotifier extends Notifier<List<OrderModel>> {
   @override
   List<OrderModel> build() {
     return [
       OrderModel(
         orderID: 'ORD-9824',
+        customerID: 'CUST-001',
         customerName: 'Alex',
+        customerPhone: '+60123456789',
         orderItems: '2x Big Mac, 1x French Fries',
+        itemsSubtotal: 35.00,
+        deliveryFee: 5.00,
+        taxAmount: 2.40,
+        isPaid: true,
+        paymentMethod: 'Credit Card',
         status: 'pending',
         timeAgo: '2 mins ago',
-      ),
-      OrderModel(
-        orderID: 'ORD-1234',
-        customerName: 'Genji',
-        orderItems: '1x Speghati, 1x Pizza',
-        status: 'preparing',
-        timeAgo: '10 mins ago',
-      ),
-      OrderModel(
-        orderID: 'ORD-3254',
-        customerName: 'Stephord',
-        orderItems: '1x Nasi Lemak, 1x telur',
-        status: 'almost done',
-        timeAgo: '15 mins ago',
-      ),
-      OrderModel(
-        orderID: 'ORD-12345',
-        customerName: 'Chow',
-        orderItems: '1x Pizza',
-        status: 'pending',
-        timeAgo: '8 mins ago',
-      ),
-      OrderModel(
-          orderID: 'ORD-4568',
-          customerName: 'Vegetarian',
-          orderItems: '1x Rib eye Steak',
-          status: 'preparing',
-          timeAgo: '15 mins ago'
+        location: 'APU Campus Cafeteria, Bukit Jalil',
+        deliveryAddress: 'Residensi Park, Bukit Jalil, KL',
+        notes: 'Less ice on drinks, please.',
       ),
     ];
   }
 
+  /// Update the entire list of orders in real-time state
   void updateOrders(List<OrderModel> newOrders) {
     state = newOrders;
   }
 }
 
-final orderListProvider = NotifierProvider<orderListNotifier, List<OrderModel>>(() {
-  return orderListNotifier();
+final orderListProvider = NotifierProvider<OrderListNotifier, List<OrderModel>>(() {
+  return OrderListNotifier();
 });
