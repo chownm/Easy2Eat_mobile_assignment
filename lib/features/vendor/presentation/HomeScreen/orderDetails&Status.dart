@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
-import 'package:easy2eat/features/vendor/providers/Notifiers/order-provider.dart';
+import 'package:easy2eat/features/vendor/providers/qrcode-generation/qr-generator.dart';
 import 'package:easy2eat/features/vendor/presentation/QRScreen/ui.dart';
-import 'package:easy2eat/features/vendor/providers/Notifiers/qr-provider.dart';
 
-class OrderDetailWidget extends ConsumerStatefulWidget {
+class OrderDetailWidget extends StatefulWidget {
   const OrderDetailWidget({super.key});
 
   @override
-  ConsumerState<OrderDetailWidget> createState() => _OrderDetailWidgetState();
+  State<OrderDetailWidget> createState() => _OrderDetailWidgetState();
 }
 
-class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
-  // Controller to manage the scrollbar and list view scrolling
+class _OrderDetailWidgetState extends State<OrderDetailWidget> {
   final ScrollController _scrollController = ScrollController();
+  late Future<List<OrderModel>> _ordersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _ordersFuture = _fetchVendorOrders();
+  }
 
   @override
   void dispose() {
@@ -22,64 +27,199 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
     super.dispose();
   }
 
+  // Manually trigger a refresh to fetch updated Firestore orders
+  void _refreshOrders() {
+    setState(() {
+      _ordersFuture = _fetchVendorOrders();
+    });
+  }
+
+  /// 1. Fetch active orders from Firestore (seeds mock data if collection is empty)
+  Future<List<OrderModel>> _fetchVendorOrders() async {
+    try {
+      final collectionRef = FirebaseFirestore.instance.collection('orders');
+      final snapshot = await collectionRef.get();
+
+      if (snapshot.docs.isEmpty) {
+        debugPrint("Firestore 'orders' is empty. Seeding initial mock orders...");
+        await _seedInitialMockOrders(collectionRef);
+        final freshSnapshot = await collectionRef.get();
+        return freshSnapshot.docs
+            .map((doc) => OrderModel.fromJson(doc.data()))
+            .where((order) => order.status != 'delivered' && !order.isDelivered)
+            .toList();
+      }
+
+      return snapshot.docs
+          .map((doc) => OrderModel.fromJson(doc.data()))
+          .where((order) => order.status != 'delivered' && !order.isDelivered)
+          .toList();
+    } catch (e) {
+      debugPrint("Failed to fetch vendor orders: $e");
+      return [];
+    }
+  }
+
+  /// 2. Seed mock orders so the UI isn't empty on first launch
+  Future<void> _seedInitialMockOrders(CollectionReference collectionRef) async {
+    final List<OrderModel> mockOrders = [
+      OrderModel(
+        orderID: 'ORD-9824',
+        customerID: 'CUST-001',
+        customerName: 'Alex',
+        customerPhone: '+60123456789',
+        orderItems: '2x Big Mac, 1x French Fries',
+        itemsSubtotal: 35.00,
+        deliveryFee: 5.00,
+        taxAmount: 2.40,
+        isPaid: true,
+        paymentMethod: 'Credit Card',
+        status: 'pending',
+        timeAgo: '2 mins ago',
+        location: 'APU Campus Cafeteria, Bukit Jalil',
+        deliveryAddress: 'Residensi Park, Bukit Jalil, KL',
+        notes: 'Less ice on drinks, please.',
+      ),
+      OrderModel(
+        orderID: 'ORD-9825',
+        customerID: 'CUST-002',
+        customerName: 'Sarah Lim',
+        customerPhone: '+60198765432',
+        orderItems: '1x Chicken Rice, 1x Teh Tarik',
+        itemsSubtotal: 18.00,
+        deliveryFee: 4.00,
+        taxAmount: 1.32,
+        isPaid: true,
+        paymentMethod: 'Online Banking',
+        status: 'pending',
+        timeAgo: '5 mins ago',
+        location: 'APU Campus Cafeteria, Bukit Jalil',
+        deliveryAddress: 'Enterprise Park, Bukit Jalil, KL',
+        notes: 'Extra chili sauce on the side.',
+      ),
+    ];
+
+    for (var order in mockOrders) {
+      final qrPayload = OrderQRGenerator.generatePayload(order);
+      final qrBase64 = await OrderQRGenerator.generateQrBase64(order);
+
+      final Map<String, dynamic> dataToStore = {
+        ...order.toJson(),
+        'qrPayload': qrPayload,
+        'qrBase64': qrBase64 ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await collectionRef.doc(order.orderID).set(dataToStore, SetOptions(merge: true));
+    }
+  }
+
+  /// 3. Advance order status & automatically sync QR data to Firestore on 'Accept & Prepare'
+  Future<void> _advanceOrderStatus(OrderModel order, String newStatus) async {
+    try {
+      final updatedOrder = order.copyWith(status: newStatus);
+
+      final qrPayload = OrderQRGenerator.generatePayload(updatedOrder);
+      final qrBase64 = await OrderQRGenerator.generateQrBase64(updatedOrder);
+
+      final Map<String, dynamic> dataToStore = {
+        ...updatedOrder.toJson(),
+        'qrPayload': qrPayload,
+        'qrBase64': qrBase64 ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(updatedOrder.orderID)
+          .set(dataToStore, SetOptions(merge: true));
+
+      debugPrint("Order ${updatedOrder.orderID} status updated & QR synced to cloud.");
+      _refreshOrders();
+    } catch (e) {
+      debugPrint("Failed to update order status: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final orders = ref.watch(orderListProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Live Order Stream & Status Pipeline',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        if (orders.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(24),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
+    return FutureBuilder<List<OrderModel>>(
+      future: _ordersFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(),
             ),
-            child: const Text('All caught up! No active orders', style: TextStyle(color: Colors.grey)),
-          )
-        else
-        // Framed Container with a Scrollbar for bounded order management
-          Container(
-            height: 450, // Fixed height frame to limit space and enable scrolling
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.shade200),
+          );
+        }
+
+        final orders = snapshot.data ?? [];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Live Order Stream & Status Pipeline',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: _refreshOrders,
+                  tooltip: 'Refresh Orders',
+                ),
+              ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            child: Scrollbar(
-              controller: _scrollController,
-              thumbVisibility: true, // Always show scrollbar indicator for better UX
-              child: ListView.builder(
-                controller: _scrollController,
-                shrinkWrap: false,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: orders.length,
-                itemBuilder: (context, index) {
-                  final order = orders[index];
-                  return _buildInteractiveOrderCard(context, order);
-                },
+            const SizedBox(height: 12),
+
+            if (orders.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(24),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: const Text('All caught up! No active orders', style: TextStyle(color: Colors.grey)),
+              )
+            else
+              Container(
+                height: 450,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      final order = orders[index];
+                      return _buildInteractiveOrderCard(context, order);
+                    },
+                  ),
+                ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 
-  // Widget Setting for Order Status Card
   Widget _buildInteractiveOrderCard(BuildContext context, OrderModel order) {
     Color statusColor;
     String nextStatusText;
@@ -113,7 +253,7 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14, right: 8), // Right margin to give space for scrollbar
+      margin: const EdgeInsets.only(bottom: 14, right: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -144,15 +284,13 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Click to generate and show QR code dialog
                   InkWell(
                     onTap: () {
-                      ref.read(selectedOrderForQrProvider.notifier).state = order;
                       showDialog(
                         context: context,
-                        builder: (context) => const Dialog(
+                        builder: (context) => Dialog(
                           backgroundColor: Colors.transparent,
-                          child: OrderQrDialogWidget(),
+                          child: OrderQrDialogWidget(order: order),
                         ),
                       );
                     },
@@ -223,7 +361,7 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
               if (order.status != 'done')
                 InkWell(
                   onTap: () {
-                    _advanceOrderStatus(order.orderID, nextStatusValue);
+                    _advanceOrderStatus(order, nextStatusValue);
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
@@ -248,19 +386,5 @@ class _OrderDetailWidgetState extends ConsumerState<OrderDetailWidget> {
         ],
       ),
     );
-  }
-
-  // Method: Advance order status using copyWith to preserve all fields
-  void _advanceOrderStatus(String targetOrderID, String newStatus) {
-    final currentOrders = ref.read(orderListProvider);
-
-    final updatedOrders = currentOrders.map((order) {
-      if (order.orderID == targetOrderID) {
-        return order.copyWith(status: newStatus);
-      }
-      return order;
-    }).toList();
-
-    ref.read(orderListProvider.notifier).updateOrders(updatedOrders);
   }
 }

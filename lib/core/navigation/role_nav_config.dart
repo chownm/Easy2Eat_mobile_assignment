@@ -41,7 +41,7 @@ class RoleNavConfig {
             activeIcon: Icons.shopping_bag_rounded,
           ),
           NavigationTabItem(
-            label: 'Track',
+            label: 'Chat',
             icon: Icons.radar_outlined,
             activeIcon: Icons.radar_rounded,
           ),

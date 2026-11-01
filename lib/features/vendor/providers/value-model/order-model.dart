@@ -20,7 +20,8 @@ class OrderModel {
   final String paymentStatus;
   final String paymentMethod;
 
-  final String status;         // 'pending', 'preparing', 'almost done', 'done', 'delivered'
+  final String status;         // Riders to update order status (address to delivery status)
+  final String preparationStatus; // Vendor to update order status
   final String timeAgo;
   final String location;       // Store / Pickup branch location
   final String deliveryAddress;// Customer delivery address
@@ -53,6 +54,7 @@ class OrderModel {
     String? paymentStatus,
     this.paymentMethod = 'Credit Card',
     required this.status,
+    String? preparationStatus,
     this.timeAgo = '',
     this.location = '',
     this.deliveryAddress = '',
@@ -68,10 +70,12 @@ class OrderModel {
   })  : qrID = (qrID != null && qrID.isNotEmpty) ? qrID : orderID,
         totalPrice = totalPrice ?? (itemsSubtotal + deliveryFee + taxAmount),
         isPaid = isPaid ?? (paymentStatus == 'paid' || true),
-        paymentStatus = paymentStatus ?? ((isPaid ?? true) ? 'paid' : 'unpaid');
+        paymentStatus = paymentStatus ?? ((isPaid ?? true) ? 'paid' : 'unpaid'),
+        preparationStatus = preparationStatus ?? (status == 'pending' ? 'received' : status);
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     bool parsedIsPaid = json['isPaid'] ?? (json['paymentStatus'] == 'paid');
+    String baseStatus = json['status'] ?? 'pending';
     return OrderModel(
       orderID: json['orderID'] ?? json['deliveryId'] ?? '',
       qrID: json['qrID'] ?? json['orderID'] ?? '',
@@ -88,7 +92,8 @@ class OrderModel {
       isPaid: parsedIsPaid,
       paymentStatus: json['paymentStatus'] ?? (parsedIsPaid ? 'paid' : 'unpaid'),
       paymentMethod: json['paymentMethod'] ?? 'Credit Card',
-      status: json['status'] ?? 'pending',
+      status: baseStatus,
+      preparationStatus: json['preparationStatus'] ?? baseStatus,
       timeAgo: json['timeAgo'] ?? json['orderTime'] ?? '',
       location: json['location'] ?? json['pickupLocation'] ?? '',
       deliveryAddress: json['deliveryAddress'] ?? json['dropOffLocation'] ?? '',
@@ -103,7 +108,7 @@ class OrderModel {
       pickedUpAt: json['pickedUpAt'] != null
           ? DateTime.tryParse(json['pickedUpAt'].toString())
           : null,
-      isDelivered: json['isDelivered'] ?? (json['status'] == 'delivered'),
+      isDelivered: json['isDelivered'] ?? (baseStatus == 'delivered'),
       deliveredAt: json['deliveredAt'] != null
           ? DateTime.tryParse(json['deliveredAt'].toString())
           : null,
@@ -130,6 +135,7 @@ class OrderModel {
       'paymentStatus': paymentStatus,
       'paymentMethod': paymentMethod,
       'status': status,
+      'preparationStatus': preparationStatus,
       'timeAgo': timeAgo,
       'orderTime': timeAgo, // Compatible with teammate's orderTime
       'location': location,
@@ -165,6 +171,7 @@ class OrderModel {
     String? paymentStatus,
     String? paymentMethod,
     String? status,
+    String? preparationStatus,
     String? timeAgo,
     String? location,
     String? deliveryAddress,
@@ -200,6 +207,7 @@ class OrderModel {
       paymentStatus: paymentStatus ?? (newIsPaid ? 'paid' : 'unpaid'),
       paymentMethod: paymentMethod ?? this.paymentMethod,
       status: status ?? this.status,
+      preparationStatus: preparationStatus ?? this.preparationStatus,
       timeAgo: timeAgo ?? this.timeAgo,
       location: location ?? this.location,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,

@@ -1,11 +1,15 @@
-import 'package:easy2eat/features/vendor/presentation/HomeScreen/dailyRevenue.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/features/vendor/presentation/HomeScreen/merchantHeader.dart';
 import 'package:easy2eat/features/vendor/presentation/HomeScreen/orderDetails&Status.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class VendorHomePage extends StatelessWidget {
+class VendorHomePage extends StatefulWidget {
   const VendorHomePage({super.key});
+
+  @override
+  State<VendorHomePage> createState() => _VendorHomePageState();
+}
+
+class _VendorHomePageState extends State<VendorHomePage> {
 
   @override
   Widget build(BuildContext context) {
@@ -16,8 +20,6 @@ class VendorHomePage extends StatelessWidget {
         children: [
           TopHeaderWidget(),
           SizedBox(height: 16),
-          DailyRevenueWidget(),
-          SizedBox(height: 20),
           OrderDetailWidget(),
         ],
       ),

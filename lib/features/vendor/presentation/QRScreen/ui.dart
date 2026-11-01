@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy2eat/features/vendor/providers/Notifiers/qr-provider.dart';
+import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
 import 'package:easy2eat/features/vendor/providers/qrcode-generation/qr-generator.dart';
+import 'package:easy2eat/features/vendor/providers/Notifiers/qr-provider.dart';
 
-class OrderQrDialogWidget extends ConsumerWidget {
-  const OrderQrDialogWidget({super.key});
+class OrderQrDialogWidget extends StatelessWidget {
+  final OrderModel? order;
+
+  const OrderQrDialogWidget({super.key, required this.order});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the selected order for QR viewing
-    final order = ref.watch(selectedOrderForQrProvider);
-
+  Widget build(BuildContext context) {
     if (order == null) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -68,7 +67,7 @@ class OrderQrDialogWidget extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                order.orderID,
+                order!.orderID,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -77,7 +76,7 @@ class OrderQrDialogWidget extends ConsumerWidget {
               ),
               const Text(' • ', style: TextStyle(color: Colors.grey)),
               Text(
-                order.customerName,
+                order!.customerName,
                 style: const TextStyle(
                   fontSize: 14,
                   color: Colors.grey,
@@ -95,7 +94,7 @@ class OrderQrDialogWidget extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: OrderQRGenerator.buildQrImageWidget(order, size: 200.0),
+            child: OrderQRGenerator.buildQrImageWidget(order!, size: 200.0),
           ),
           const SizedBox(height: 12),
 

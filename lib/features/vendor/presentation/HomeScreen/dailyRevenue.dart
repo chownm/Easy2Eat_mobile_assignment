@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy2eat/features/vendor/providers/Notifiers/order-provider.dart';
+import 'package:easy2eat/features/vendor/providers/value-model/order-model.dart';
 
-class DailyRevenueWidget extends ConsumerWidget {
-  const DailyRevenueWidget({super.key});
+class DailyRevenueWidget extends StatelessWidget {
+  final List<OrderModel> orders; // Dynamic order stream from Firestore
+
+  const DailyRevenueWidget({super.key, required this.orders});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Listen to the order list to dynamically calculate today's total revenue and total orders
-    final orders = ref.watch(orderListProvider);
-
-    // Dynamically calculate total orders count
+  Widget build(BuildContext context) {
+    // 1. Dynamically calculate total orders count
     int totalOrders = orders.length;
 
-    // Dynamically calculate total daily revenue by summing up all order totals
+    // 2. Dynamically calculate total daily revenue by summing up all order totals
     double totalRevenue = orders.fold(0.0, (sum, order) => sum + order.totalPrice);
 
     return Container(
