@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-// 4 Transparent operational dispatch stages
+/// 5 Transparent operational dispatch stages
 enum OrderTrackingStage {
   confirmed(
     stepNumber: 1,
@@ -13,19 +13,25 @@ enum OrderTrackingStage {
     stepNumber: 2,
     headerTitle: 'Preparing',
     pipelineTitle: '2. Kitchen Preparing',
-    defaultStatusText: 'Kitchen is packing your dish. Rider dispatched upon packaging completion.',
+    defaultStatusText: 'Vendor received order and is actively preparing dishes.',
   ),
-  almostDone(
+  readyForPickup(
     stepNumber: 3,
+    headerTitle: 'Ready for Pickup',
+    pipelineTitle: '3. Ready for Pickup',
+    defaultStatusText: 'Dishes boxed! Waiting at counter for rider collection.',
+  ),
+  onTheWay(
+    stepNumber: 4,
     headerTitle: 'On the Way',
-    pipelineTitle: '3. On the Way',
-    defaultStatusText: 'Dishes boxed! Rider picked up order and is navigating to your location.',
+    pipelineTitle: '4. On the Way',
+    defaultStatusText: 'Courier collected order and is en route via direct corridor.',
   ),
   delivered(
-    stepNumber: 4,
+    stepNumber: 5,
     headerTitle: 'Delivered',
-    pipelineTitle: '4. Delivered',
-    defaultStatusText: 'Order has been delivered!',
+    pipelineTitle: '5. Delivered',
+    defaultStatusText: 'Order delivered safely to Gate Pillar 2 drop table. Photo logged.',
   );
 
   final int stepNumber;
@@ -40,7 +46,7 @@ enum OrderTrackingStage {
     required this.defaultStatusText,
   });
 
-  String get stageBadge => 'Stage $stepNumber/4 • $headerTitle';
+  String get stageBadge => 'Stage $stepNumber/5 • $headerTitle';
 }
 
 /// Point A to Point B Hyper-Local Corridor Route metadata.
@@ -129,7 +135,7 @@ class DropOffProofModel {
   });
 }
 
-/// Individual item in the 4-stage vertical pipeline stepper.
+/// Individual item in the 5-stage vertical pipeline stepper.
 @immutable
 class TrackingMilestoneModel {
   final int stageIndex;
@@ -148,13 +154,9 @@ class TrackingMilestoneModel {
 /// Master Entity representing live tracking state for Tab 2.
 @immutable
 class OrderTrackingModel {
-  /// Global preference toggle: Enable/disable 100m proximity alert chime & banner
   static bool isProximityBeaconEnabled = true;
-
-  /// Global default drop-off sub-pin landmark (Configurable via Settings c_11)
   static String defaultSubPinLandmark = 'Gate Pillar 2 (Table)';
 
-  // Vendor Flat Schema Fields (Synced with Firestore)
   final String orderId;
   final OrderTrackingStage currentStage;
   final String customerName;
@@ -166,7 +168,6 @@ class OrderTrackingModel {
   final String? riderPhone;
   final bool isPickedUp;
 
-  // Local UI State Fields
   final String etaTimeDisplay;
   final int etaMinutesRemaining;
   final String etaBadgeLabel;
@@ -188,8 +189,6 @@ class OrderTrackingModel {
     this.riderName,
     this.riderPhone,
     required this.isPickedUp,
-
-    // UI Defaults
     this.etaTimeDisplay = '',
     this.etaMinutesRemaining = 0,
     this.etaBadgeLabel = '',
@@ -201,50 +200,69 @@ class OrderTrackingModel {
     this.milestones = standardMilestones,
   });
 
-  /// Bridges the Vendor's flat rider string fields into the UI's Courier Object
   CourierProfileModel get courier => CourierProfileModel(
-    name: riderName ?? 'Assigned Courier',
-    plateNumber: 'TBD',
+    name: riderName ?? 'Searching for nearby rider...',
+    plateNumber: riderName != null ? 'BQK 4812' : 'Pending',
     vehicleType: 'Motorcycle',
     phoneNumber: riderPhone ?? '',
-    hubAffiliation: 'Platform Fleet',
+    hubAffiliation: assignedRiderId != null ? 'Active Courier' : 'Unassigned',
   );
 
-  /// Master parser for the shared pipeline document reading from Vendor's OrderModel[cite: 2].
+  /// Master parser reading the exact shared schema from Vendor & Rider
   factory OrderTrackingModel.fromFirestore(DocumentSnapshot doc) {
-    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> data =
+        doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
 
-    // 1. Safely map Vendor's string status to Customer enum
-    final String rawStatus = data['status'] ?? 'pending';
+    final String rawStatus =
+    (data['status'] ?? data['stage'] ?? 'confirmed').toString().trim().toLowerCase();
+
     OrderTrackingStage parsedStage;
     switch (rawStatus) {
       case 'preparing':
         parsedStage = OrderTrackingStage.preparing;
         break;
-      case 'almostDone':
-        parsedStage = OrderTrackingStage.almostDone;
+      case 'readyforpickup':
+      case 'ready_for_pickup':
+        parsedStage = OrderTrackingStage.readyForPickup;
+        break;
+      case 'ontheway':
+      case 'on_the_way':
+      case 'almostdone':
+        parsedStage = OrderTrackingStage.onTheWay;
         break;
       case 'delivered':
       case 'done':
         parsedStage = OrderTrackingStage.delivered;
         break;
       case 'pending':
+      case 'confirmed':
       default:
         parsedStage = OrderTrackingStage.confirmed;
     }
 
+    // Dynamic corridor from actual order locations
+    final pickup = data['location'] ?? data['pickupLocation'] ?? 'APU Campus Cafeteria';
+    final dropOff = data['deliveryAddress'] ?? data['dropOffLocation'] ?? OrderTrackingModel.defaultSubPinLandmark;
+
+    final dynamicCorridor = OrderTrackingModel.defaultCorridor.copyWith(
+      merchantName: data['vendorName']?.toString().isNotEmpty == true ? data['vendorName'] : 'Campus Cafeteria',
+      merchantHub: pickup.toString().replaceAll('Pickup: ', ''),
+      dropOffLandmark: dropOff.toString().replaceAll('Drop Off: ', ''),
+    );
+
     return OrderTrackingModel(
-      orderId: data['orderID'] ?? doc.id,
+      orderId: data['orderID'] ?? data['orderId'] ?? data['deliveryId'] ?? doc.id,
       currentStage: parsedStage,
       customerName: data['customerName'] ?? '',
       customerPhone: data['customerPhone'] ?? '',
       totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0.0,
-      location: data['location'] ?? '',
+      location: dropOff,
       assignedRiderId: data['assignedRiderId'],
       riderName: data['riderName'],
       riderPhone: data['riderPhone'],
       isPickedUp: data['isPickedUp'] ?? false,
       etaMinutesRemaining: (data['minutesRemaining'] as num?)?.toInt() ?? 0,
+      corridor: dynamicCorridor,
     );
   }
 
@@ -307,42 +325,33 @@ class OrderTrackingModel {
     TrackingMilestoneModel(
       stageIndex: 1,
       title: '1. Order Confirmed',
-      subtitle: 'Merchant acknowledged receipt & queued ticket.',
-      completedTimestamp: '12:32 PM',
+      subtitle: 'Paid & logged. Kitchen queued ticket.',
+      completedTimestamp: '12:30 PM',
     ),
     TrackingMilestoneModel(
       stageIndex: 2,
-      title: '2. Live Kitchen Preparing',
-      subtitle: 'Dishes cooking on wok; portion counters deducted.',
+      title: '2. Kitchen Preparing',
+      subtitle: 'Vendor received order and is actively cooking.',
     ),
     TrackingMilestoneModel(
       stageIndex: 3,
-      title: '3. Almost Done (Rider Dispatched)',
-      subtitle: 'Courier arriving at kitchen for bag pickup.',
+      title: '3. Ready for Pickup',
+      subtitle: 'Food packed & ready at counter. Waiting for rider pickup.',
     ),
     TrackingMilestoneModel(
       stageIndex: 4,
-      title: '4. Delivered (Gate Drop Verified)',
+      title: '4. On the Way',
+      subtitle: 'Courier collected order and is en route via corridor.',
+    ),
+    TrackingMilestoneModel(
+      stageIndex: 5,
+      title: '5. Delivered',
       subtitle: 'Verified with GPS drop-off photo proof at Gate Pillar 2.',
     ),
   ];
 
-  static const OrderTrackingModel mockStage2 = OrderTrackingModel(
-    orderId: 'E2E-89241',
-    currentStage: OrderTrackingStage.preparing,
-    customerName: 'Joel Ira',
-    customerPhone: '+60 12-892 4118',
-    totalPrice: 19.80,
-    location: 'Gate Pillar 2 (Table)',
-    isPickedUp: false,
-    etaTimeDisplay: '12:45 PM',
-    etaMinutesRemaining: 8,
-    etaBadgeLabel: 'On Schedule',
-    stageDescription: 'Kitchen is packing your bowls. Rider dispatched upon packaging completion.',
-  );
-
   static const OrderTrackingModel mockStage1 = OrderTrackingModel(
-    orderId: 'E2E-89241',
+    orderId: 'ORD-06095386',
     currentStage: OrderTrackingStage.confirmed,
     customerName: 'Joel Ira',
     customerPhone: '+60 12-892 4118',
@@ -353,35 +362,6 @@ class OrderTrackingModel {
     etaMinutesRemaining: 14,
     etaBadgeLabel: 'Order Logged',
     stageDescription: 'Order received. Kitchen has queued your ticket for prep.',
-  );
-
-  static const OrderTrackingModel mockStage3 = OrderTrackingModel(
-    orderId: 'E2E-89241',
-    currentStage: OrderTrackingStage.almostDone,
-    customerName: 'Joel Ira',
-    customerPhone: '+60 12-892 4118',
-    totalPrice: 19.80,
-    location: 'Gate Pillar 2 (Table)',
-    isPickedUp: true,
-    etaTimeDisplay: '3 mins',
-    etaMinutesRemaining: 3,
-    etaBadgeLabel: 'Rider In Transit',
-    stageDescription: 'Dishes boxed! Rider picked up order and is navigating to your location.',
-    is100mBeaconActive: true,
-  );
-
-  static const OrderTrackingModel mockStage4 = OrderTrackingModel(
-    orderId: 'E2E-89241',
-    currentStage: OrderTrackingStage.delivered,
-    customerName: 'Joel Ira',
-    customerPhone: '+60 12-892 4118',
-    totalPrice: 19.80,
-    location: 'Gate Pillar 2 (Table)',
-    isPickedUp: true,
-    etaTimeDisplay: 'Delivered',
-    etaMinutesRemaining: 0,
-    etaBadgeLabel: 'Delivered',
-    stageDescription: 'Package dropped safely on Gate Pillar 2 drop table. Photo proof logged.',
   );
 }
 

@@ -48,7 +48,7 @@ class CustomerStagePipelineStepper extends StatelessWidget {
                 ),
               ),
               Text(
-                '4-Stage Model',
+                '5-Stage Model',
                 style: TextStyle(
                   color: ThemesColors.darkCharcoal.withValues(alpha: 0.5),
                   fontSize: 10.5,
@@ -60,26 +60,28 @@ class CustomerStagePipelineStepper extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Horizontal Pipeline Nodes: 1 ── 2 ── 3 ── 4
+          // Horizontal 5-Step Pipeline: 1 ── 2 ── 3 ── 4 ── 5
           Row(
             children: <Widget>[
               _buildStepNode(1, 'Confirmed', activeStep),
               _buildConnectorLine(1, activeStep),
               _buildStepNode(2, 'Preparing', activeStep),
               _buildConnectorLine(2, activeStep),
-              _buildStepNode(3, 'On the Way', activeStep),
+              _buildStepNode(3, 'Ready', activeStep),
               _buildConnectorLine(3, activeStep),
-              _buildStepNode(4, 'Delivered', activeStep),
+              _buildStepNode(4, 'On Way', activeStep),
+              _buildConnectorLine(4, activeStep),
+              _buildStepNode(5, 'Delivered', activeStep),
             ],
           ),
 
           const SizedBox(height: 10),
 
-          // Single Active Description Box (Drastically reduces height!)
+          // Active Description Card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFDF9F2),
+              color: ThemesColors.appSurface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: ThemesColors.promoYellow.withValues(alpha: 0.35),
@@ -93,7 +95,7 @@ class CustomerStagePipelineStepper extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     Text(
-                      'STAGE $activeStep ACTIVE',
+                      'STAGE $activeStep/5 ACTIVE',
                       style: const TextStyle(
                         color: ThemesColors.brandOrange,
                         fontSize: 9.5,
@@ -105,9 +107,7 @@ class CustomerStagePipelineStepper extends StatelessWidget {
                       Text(
                         activeMilestone.completedTimestamp!,
                         style: TextStyle(
-                          color: ThemesColors.darkCharcoal.withValues(
-                            alpha: 0.55,
-                          ),
+                          color: ThemesColors.darkCharcoal.withValues(alpha: 0.55),
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                         ),
@@ -140,8 +140,8 @@ class CustomerStagePipelineStepper extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Container(
-          width: 22,
-          height: 22,
+          width: 20,
+          height: 20,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isCompleted
@@ -164,7 +164,7 @@ class CustomerStagePipelineStepper extends StatelessWidget {
                 ? const Icon(
               Icons.check_rounded,
               color: ThemesColors.appSurface,
-              size: 14,
+              size: 13,
             )
                 : Text(
               '$stepNumber',
@@ -172,7 +172,7 @@ class CustomerStagePipelineStepper extends StatelessWidget {
                 color: isActive
                     ? ThemesColors.darkCharcoal
                     : ThemesColors.darkCharcoal.withValues(alpha: 0.4),
-                fontSize: 10.5,
+                fontSize: 10,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -185,7 +185,7 @@ class CustomerStagePipelineStepper extends StatelessWidget {
             color: (isCompleted || isActive)
                 ? ThemesColors.darkCharcoal
                 : ThemesColors.darkCharcoal.withValues(alpha: 0.4),
-            fontSize: 9.5,
+            fontSize: 8.5,
             fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
           ),
         ),
@@ -198,8 +198,8 @@ class CustomerStagePipelineStepper extends StatelessWidget {
 
     return Expanded(
       child: Container(
-        height: 2.5,
-        margin: const EdgeInsets.only(bottom: 14, left: 2, right: 2),
+        height: 2.2,
+        margin: const EdgeInsets.only(bottom: 14, left: 1, right: 1),
         color: isCompleted
             ? ThemesColors.freshGreen
             : ThemesColors.darkCharcoal.withValues(alpha: 0.12),

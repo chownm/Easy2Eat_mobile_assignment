@@ -145,7 +145,9 @@ class CustomerEstimatedArrivalHeroCard extends StatelessWidget {
         return ThemesColors.darkCharcoal.withValues(alpha: 0.08);
       case OrderTrackingStage.preparing:
         return ThemesColors.promoYellow.withValues(alpha: 0.16);
-      case OrderTrackingStage.almostDone:
+      case OrderTrackingStage.readyForPickup:
+        return Colors.amber.shade100;
+      case OrderTrackingStage.onTheWay:
         return ThemesColors.brandOrange.withValues(alpha: 0.12);
       case OrderTrackingStage.delivered:
         return ThemesColors.freshGreen.withValues(alpha: 0.14);
@@ -158,7 +160,9 @@ class CustomerEstimatedArrivalHeroCard extends StatelessWidget {
         return ThemesColors.darkCharcoal.withValues(alpha: 0.18);
       case OrderTrackingStage.preparing:
         return ThemesColors.promoYellow.withValues(alpha: 0.45);
-      case OrderTrackingStage.almostDone:
+      case OrderTrackingStage.readyForPickup:
+        return Colors.amber.shade400;
+      case OrderTrackingStage.onTheWay:
         return ThemesColors.brandOrange.withValues(alpha: 0.35);
       case OrderTrackingStage.delivered:
         return ThemesColors.freshGreen.withValues(alpha: 0.4);
@@ -171,7 +175,9 @@ class CustomerEstimatedArrivalHeroCard extends StatelessWidget {
         return ThemesColors.darkCharcoal.withValues(alpha: 0.85);
       case OrderTrackingStage.preparing:
         return ThemesColors.darkCharcoal;
-      case OrderTrackingStage.almostDone:
+      case OrderTrackingStage.readyForPickup:
+        return Colors.brown.shade800;
+      case OrderTrackingStage.onTheWay:
         return ThemesColors.brandOrange;
       case OrderTrackingStage.delivered:
         return ThemesColors.freshGreen;

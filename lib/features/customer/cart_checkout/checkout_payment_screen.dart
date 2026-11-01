@@ -1,11 +1,12 @@
-import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/core/theme/theme.dart';
-import 'package:easy2eat/features/customer/models/cart_item_model.dart';
 import 'package:easy2eat/features/customer/cart_checkout/widgets/delivery_pin_card.dart';
-import 'package:easy2eat/features/customer/tracking/tracking_screen.dart';
 import 'package:easy2eat/features/customer/customer_shell_screen.dart';
+import 'package:easy2eat/features/customer/models/cart_item_model.dart';
+import 'package:easy2eat/features/customer/models/order_tracking_model.dart';
+import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
 
 enum PaymentMethod {
   tngEWallet,
@@ -44,39 +45,95 @@ class _CustomerCheckoutPaymentScreenState
     setState(() => _isProcessing = true);
 
     try {
-      // 1. Generate a clean Order ID
-      final String orderId = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(5, 13)}';
+      // 1. Generate clean Order ID
+      final String orderId =
+          'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
-      // 2. Format cart items into the single String expected by the Vendor's schema
+      // 2. Format cart items into the multi-line string for Vendor kitchen ticket
       final String orderItemsString = widget.cartItems
           .map((item) => '${item.quantity}x ${item.title} (${item.customizationTag})')
           .join('\n');
 
-      // 3. Build the payload exactly matching the Vendor's OrderModel
+      // 3. Resolve dynamic drop-off details with fallback to global settings
+      final String dropOffLandmark = OrderTrackingModel.defaultSubPinLandmark.isNotEmpty
+          ? OrderTrackingModel.defaultSubPinLandmark
+          : CartItemModel.mockDropOffPin.microPinLandmark;
+      final String fullDeliveryAddress =
+          '${CartItemModel.mockDropOffPin.hubZoneTitle}, $dropOffLandmark';
+
+      // 4. Resolve vendor details dynamically from cart
+      final String vendorId = widget.cartItems.isNotEmpty
+          ? widget.cartItems.first.merchantId
+          : 'VENDOR-001';
+      final String vendorName = widget.cartItems.isNotEmpty
+          ? widget.cartItems.first.merchantName
+          : 'APU Campus Cafeteria';
+
+      // 5. Build payload matching Vendor & Rider requirements and 5-stage lifecycle
       final Map<String, dynamic> orderPayload = {
-        'orderId': orderId,    // For Tracking/Rider sync
-        'orderID': orderId,    // Preserved for Vendor schema
+        // Identification
+        'orderId': orderId,
+        'orderID': orderId,
+        'deliveryId': orderId,
         'qrID': orderId,
-        'customerName': 'Joel Ira',
+        'qrPayload': orderId,
+        'qrBase64': '',
+
+        // Customer Information
+        'customerID': UserSession.currentUid ?? 'CUST-101',
+        'customerName': 'Marcus Tan',
         'customerPhone': '+60 12-892 4118',
+        'deliveryAddress': fullDeliveryAddress,
+        'dropOffLocation': 'Drop Off: $fullDeliveryAddress',
+        'location': dropOffLandmark,
+        'notes': 'Please separate the sambal.',
+
+        // Vendor Information
+        'vendorID': vendorId,
+        'vendorName': vendorName,
+        'pickupLocation': 'Pickup: $vendorName, Cheras / Bukit Jalil',
         'orderItems': orderItemsString,
+
+        // Financial Breakdown
+        'itemsSubtotal': widget.subTotal,
+        'deliveryFee': widget.deliveryFee,
+        'taxAmount': 0.0,
         'totalPrice': widget.totalAmount,
-        'status': 'pending',
-        'stage': 'preparing',  // Stage 1 initial state
+        'earningAmount': 'RM ${widget.totalAmount.toStringAsFixed(2)}',
+        'isPaid': true,
+        'paymentMethod': _selectedPayment == PaymentMethod.tngEWallet
+            ? "Touch 'n Go eWallet"
+            : (_selectedPayment == PaymentMethod.onlineBankingFpx
+            ? "Online Banking"
+            : "Cash on Delivery"),
+        'paymentStatus': 'paid',
+
+        // 5-Stage State Machine
+        'status': 'confirmed',           // Stage 1 active
+        'stage': 'confirmed',            // Dual-key compatibility
+        'preparationStatus': 'pending',   // Vendor's starting state
         'isPaused': false,
         'pauseReason': '',
-        'statusDescription': 'Order received. Kitchen has queued your ticket for prep.',
+        'statusDescription':
+        'Order received. Kitchen has queued your ticket for prep.',
+        'orderTime': 'Just now',
         'timeAgo': 'Just now',
-        'location': CartItemModel.mockDropOffPin.microPinLandmark,
-        'createdAt': DateTime.now().toIso8601String(),
+
+        // Unassigned Rider placeholders
         'assignedRiderId': null,
         'riderName': null,
         'riderPhone': null,
         'isPickedUp': false,
+        'isDelivered': false,
         'pickedUpAt': null,
+        'deliveredAt': null,
+
+        // Timestamps
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      // 4. Execute the Firestore write
+      // 6. Execute Firestore write
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(orderId)
@@ -91,18 +148,17 @@ class _CustomerCheckoutPaymentScreenState
         ),
       );
 
-      // 5. Route to Live Tracking Screen (Next Milestone)
+      // 7. Route directly to Live Tracking (Tab 2)
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
           builder: (context) => CustomerShellScreen(
-            initialIndex: 2, // Forces the bottom nav to start on Tracking Tab
-            activeOrderId: orderId, // Passes live Firestore ID
+            initialIndex: 2,
+            activeOrderId: orderId,
           ),
         ),
-            (route) => false, // Prevents Android back-button from returning to checkout
+            (route) => false,
       );
-
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,274 +176,278 @@ class _CustomerCheckoutPaymentScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ThemesColors.appSurface,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            // 1. Top bar
-            const SharedCustomerTopBar(
+    return PopScope(
+      canPop: !_isProcessing,
+      child: Scaffold(
+        backgroundColor: ThemesColors.appSurface,
+        body: SafeArea(
+          child: Column(
+            children: <Widget>[
+              // Top Bar
+              const SharedCustomerTopBar(
                 title: 'Checkout Confirmation',
-              showBackButton: true,
-              showProfileButton: false,
-            ),
+                showBackButton: true,
+                showProfileButton: false,
+              ),
 
-            // 2. Scrollable review content
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    // Section 1: Drop-off Address Card and Timing Toggle
-                    CustomerDeliveryPinCard(
-                      pin: CartItemModel.mockDropOffPin,
-                      selectedTimingMode: _selectedTimingMode,
-                      onTimingModeChanged: (DeliveryTimingMode mode) {
-                        setState(() => _selectedTimingMode = mode);
-                      },
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // Section 2: Finalized Order Roll Summary
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: ThemesColors.appSurface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: ThemesColors.darkCharcoal
-                              .withValues(alpha: 0.14),
-                        ),
+              // Scrollable Review Content
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      // Section 1: Drop-off Address Card & Timing Toggle
+                      CustomerDeliveryPinCard(
+                        pin: CartItemModel.mockDropOffPin,
+                        selectedTimingMode: _selectedTimingMode,
+                        onTimingModeChanged: (DeliveryTimingMode mode) {
+                          setState(() => _selectedTimingMode = mode);
+                        },
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: <Widget>[
-                              const Text(
-                                'Finalized Items',
-                                style: TextStyle(
-                                  color: ThemesColors.darkCharcoal,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Text(
-                                '${widget.cartItems.length} items',
-                                style: TextStyle(
-                                  color: ThemesColors.darkCharcoal
-                                      .withValues(alpha: 0.6),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 20),
-                          ...widget.cartItems.map((CartItemModel item) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                children: <Widget>[
-                                  Container(
-                                    width: 36,
-                                    height: 36,
-                                    decoration: BoxDecoration(
-                                      color: ThemesColors.darkCharcoal
-                                          .withValues(alpha: 0.05),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.fastfood_outlined,
-                                      size: 18,
-                                      color: ThemesColors.darkCharcoal,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Text(
-                                          item.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${item.quantity}x • ${item.customizationTag}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: ThemesColors.darkCharcoal
-                                                .withValues(alpha: 0.6),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    'RM ${item.totalItemPrice.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
 
-                    const SizedBox(height: 18),
+                      const SizedBox(height: 18),
 
-                    // Section 3: Payment Method Selection
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: ThemesColors.appSurface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: ThemesColors.darkCharcoal
-                              .withValues(alpha: 0.14),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const Text(
-                            'Payment Method',
-                            style: TextStyle(
-                              color: ThemesColors.darkCharcoal,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _PaymentOptionTile(
-                            title: "Touch 'n Go eWallet",
-                            subtitle: 'Instant direct balance deduction',
-                            isSelected:
-                            _selectedPayment == PaymentMethod.tngEWallet,
-                            onTap: () => setState(
-                                  () => _selectedPayment =
-                                  PaymentMethod.tngEWallet,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _PaymentOptionTile(
-                            title: 'Online Banking (FPX)',
-                            subtitle: 'Maybank2u, CIMB Clicks, Public Bank',
-                            isSelected: _selectedPayment ==
-                                PaymentMethod.onlineBankingFpx,
-                            onTap: () => setState(
-                                  () => _selectedPayment =
-                                  PaymentMethod.onlineBankingFpx,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          _PaymentOptionTile(
-                            title: 'Cash on Delivery',
-                            subtitle: 'Pay when items arrived',
-                            isSelected: _selectedPayment ==
-                                PaymentMethod.cashOnDelivery,
-                            onTap: () => setState(
-                                  () => _selectedPayment =
-                                  PaymentMethod.cashOnDelivery,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // Section 4: Cost Matrix Breakdown
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: ThemesColors.appSurface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: ThemesColors.darkCharcoal
-                              .withValues(alpha: 0.14),
-                        ),
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          _summaryRow(
-                            'Items Subtotal',
-                            'RM ${widget.subTotal.toStringAsFixed(2)}',
-                          ),
-                          const SizedBox(height: 6),
-                          _summaryRow(
-                            'Direct Unstacked Delivery (<1km)',
-                            'RM ${widget.deliveryFee.toStringAsFixed(2)}',
-                            highlightColor: ThemesColors.freshGreen,
-                          ),
-                          const SizedBox(height: 6),
-                          _summaryRow(
-                            'Eco Packaging Fee',
-                            'RM ${widget.packagingFee.toStringAsFixed(2)}',
-                          ),
-                          const Divider(height: 20),
-                          _summaryRow(
-                            'Total Payout',
-                            'RM ${widget.totalAmount.toStringAsFixed(2)}',
-                            isBold: true,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Final Place Order button
-                    ElevatedButton(
-                      onPressed: _isProcessing ? null : _placeOrder,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        elevation: 0,
-                        backgroundColor: ThemesColors.brandOrange,
-                        foregroundColor: ThemesColors.appSurface,
-                        disabledBackgroundColor: ThemesColors.brandOrange.withValues(alpha: 0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: _isProcessing
-                          ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
+                      // Section 2: Finalized Order Roll Summary
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
                           color: ThemesColors.appSurface,
-                          strokeWidth: 2.5,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: ThemesColors.darkCharcoal
+                                .withValues(alpha: 0.14),
+                          ),
                         ),
-                      )
-                          : const Text(
-                        'Confirm & Place Order',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: <Widget>[
+                                const Text(
+                                  'Finalized Items',
+                                  style: TextStyle(
+                                    color: ThemesColors.darkCharcoal,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  '${widget.cartItems.length} items',
+                                  style: TextStyle(
+                                    color: ThemesColors.darkCharcoal
+                                        .withValues(alpha: 0.6),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20),
+                            ...widget.cartItems.map((CartItemModel item) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  children: <Widget>[
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: ThemesColors.darkCharcoal
+                                            .withValues(alpha: 0.05),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.fastfood_outlined,
+                                        size: 18,
+                                        color: ThemesColors.darkCharcoal,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Text(
+                                            item.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${item.quantity}x • ${item.customizationTag}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: ThemesColors.darkCharcoal
+                                                  .withValues(alpha: 0.6),
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      'RM ${item.totalItemPrice.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 18),
+
+                      // Section 3: Payment Method Selection
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: ThemesColors.appSurface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: ThemesColors.darkCharcoal
+                                .withValues(alpha: 0.14),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'Payment Method',
+                              style: TextStyle(
+                                color: ThemesColors.darkCharcoal,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _PaymentOptionTile(
+                              title: "Touch 'n Go eWallet",
+                              subtitle: 'Instant direct balance deduction',
+                              isSelected:
+                              _selectedPayment == PaymentMethod.tngEWallet,
+                              onTap: () => setState(
+                                    () => _selectedPayment =
+                                    PaymentMethod.tngEWallet,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _PaymentOptionTile(
+                              title: 'Online Banking (FPX)',
+                              subtitle: 'Maybank2u, CIMB Clicks, Public Bank',
+                              isSelected: _selectedPayment ==
+                                  PaymentMethod.onlineBankingFpx,
+                              onTap: () => setState(
+                                    () => _selectedPayment =
+                                    PaymentMethod.onlineBankingFpx,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _PaymentOptionTile(
+                              title: 'Cash on Delivery',
+                              subtitle: 'Pay when items arrive at gate drop table',
+                              isSelected: _selectedPayment ==
+                                  PaymentMethod.cashOnDelivery,
+                              onTap: () => setState(
+                                    () => _selectedPayment =
+                                    PaymentMethod.cashOnDelivery,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Section 4: Cost Matrix Breakdown
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: ThemesColors.appSurface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: ThemesColors.darkCharcoal
+                                .withValues(alpha: 0.14),
+                          ),
+                        ),
+                        child: Column(
+                          children: <Widget>[
+                            _summaryRow(
+                              'Items Subtotal',
+                              'RM ${widget.subTotal.toStringAsFixed(2)}',
+                            ),
+                            const SizedBox(height: 6),
+                            _summaryRow(
+                              'Direct Unstacked Delivery (<1km)',
+                              'RM ${widget.deliveryFee.toStringAsFixed(2)}',
+                              highlightColor: ThemesColors.freshGreen,
+                            ),
+                            const SizedBox(height: 6),
+                            _summaryRow(
+                              'Eco Packaging Fee',
+                              'RM ${widget.packagingFee.toStringAsFixed(2)}',
+                            ),
+                            const Divider(height: 20),
+                            _summaryRow(
+                              'Total Payout',
+                              'RM ${widget.totalAmount.toStringAsFixed(2)}',
+                              isBold: true,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Final Place Order Button
+                      ElevatedButton(
+                        onPressed: _isProcessing ? null : _placeOrder,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          elevation: 0,
+                          backgroundColor: ThemesColors.brandOrange,
+                          foregroundColor: ThemesColors.appSurface,
+                          disabledBackgroundColor:
+                          ThemesColors.brandOrange.withValues(alpha: 0.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isProcessing
+                            ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: ThemesColors.appSurface,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                            : const Text(
+                          'Confirm & Place Order',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -484,8 +544,8 @@ class _PaymentOptionTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: ThemesColors.darkCharcoal
-                          .withValues(alpha: 0.6),
+                      color:
+                      ThemesColors.darkCharcoal.withValues(alpha: 0.6),
                       fontSize: 11,
                     ),
                   ),

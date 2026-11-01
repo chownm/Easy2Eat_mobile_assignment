@@ -11,8 +11,6 @@ import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
 import 'package:easy2eat/services/maps/map_api_service.dart';
 import 'package:easy2eat/shared/widgets/ChatWindow/ui.dart';
 import 'package:easy2eat/services/orders/order_sync_service.dart';
-import 'package:easy2eat/features/customer/models/customer_profile_model.dart';
-import 'package:easy2eat/features/customer/settings/widgets/customer_profile_screen.dart';
 
 class CustomerTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -92,7 +90,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   /// 1. MINUTE TICKER: Decrements 1 minute periodically when NOT paused
   void _startMinuteTicker() {
     _minuteTicker?.cancel();
-    // For viva demo: drops 1 minute every 15 seconds
     _minuteTicker = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (_isPaused || _order.etaMinutesRemaining <= 0) return;
 
@@ -100,22 +97,22 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
         final newMins = _order.etaMinutesRemaining - 1;
         final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
 
-        // PAUSE POINT 1: Kitchen finished cooking -> Waiting for Vendor to confirm packed!
+        // Pause Point 1: Cooking complete -> Awaiting kitchen to mark ready
         if (_order.currentStage == OrderTrackingStage.preparing && newMins <= transitMins) {
           _isPaused = true;
           _pauseReason = 'Awaiting Kitchen';
           _order = _order.copyWith(
             etaMinutesRemaining: newMins,
             etaTimeDisplay: _calculateEtaClockTime(newMins),
-            is100mBeaconActive: _order.currentStage == OrderTrackingStage.almostDone && newMins <= 2 && newMins > 0,
+            is100mBeaconActive: _order.currentStage == OrderTrackingStage.onTheWay && newMins <= 2 && newMins > 0,
           );
           return;
         }
 
         _order = _order.copyWith(
           etaMinutesRemaining: newMins,
-          etaTimeDisplay: _calculateEtaClockTime(newMins), // FIXED: Keeps clock time (e.g., "12:48 PM")
-          is100mBeaconActive: _order.currentStage == OrderTrackingStage.almostDone && newMins <= 2 && newMins > 0,
+          etaTimeDisplay: _calculateEtaClockTime(newMins),
+          is100mBeaconActive: _order.currentStage == OrderTrackingStage.onTheWay && newMins <= 2 && newMins > 0,
         );
       });
     });
@@ -125,18 +122,22 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   void _listenToCloudOrders() {
     _orderSub = OrderSyncService.listenToOrder(_order.orderId)?.listen((doc) {
       if (!doc.exists || doc.data() == null) return;
-      final data = doc.data()!;
+      final data = doc.data()! as Map<String, dynamic>;
 
       setState(() {
-        final stageStr = data['stage'] ?? '';
-        final bool isPaused = data['isPaused'] ?? false;
+        // Standardize reading both status and stage
+        final rawStatus = (data['status'] ?? data['stage'] ?? '').toString().trim();
+        final bool? cloudPaused = data['isPaused'];
         final String pauseReason = data['pauseReason'] ?? '';
         final String desc = data['statusDescription'] ?? _order.stageDescription;
         final int? mins = data['minutesRemaining'];
 
         OrderTrackingStage newStage = _order.currentStage;
-        if (stageStr == 'almostDone') newStage = OrderTrackingStage.almostDone;
-        if (stageStr == 'delivered') newStage = OrderTrackingStage.delivered;
+        if (rawStatus == 'confirmed') newStage = OrderTrackingStage.confirmed;
+        if (rawStatus == 'preparing') newStage = OrderTrackingStage.preparing;
+        if (rawStatus == 'readyForPickup') newStage = OrderTrackingStage.readyForPickup;
+        if (rawStatus == 'onTheWay' || rawStatus == 'almostDone') newStage = OrderTrackingStage.onTheWay;
+        if (rawStatus == 'delivered' || rawStatus == 'done') newStage = OrderTrackingStage.delivered;
 
         final bool isOrderDelivered = newStage == OrderTrackingStage.delivered;
         final int currentMins = mins ?? _order.etaMinutesRemaining;
@@ -144,8 +145,23 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
             ? _getCurrentClockTime()
             : _calculateEtaClockTime(currentMins);
 
-        _isPaused = isOrderDelivered ? false : isPaused;
-        _pauseReason = isOrderDelivered ? '' : pauseReason;
+        // State Machine Pause Resolution
+        bool resolvedPause = cloudPaused ?? _isPaused;
+        String resolvedReason = pauseReason;
+
+        if (newStage == OrderTrackingStage.readyForPickup) {
+          resolvedPause = true;
+          resolvedReason = pauseReason.isNotEmpty ? pauseReason : 'Awaiting Rider Pickup';
+        } else if (newStage == OrderTrackingStage.onTheWay) {
+          resolvedPause = false;
+          resolvedReason = '';
+        } else if (isOrderDelivered) {
+          resolvedPause = false;
+          resolvedReason = '';
+        }
+
+        _isPaused = resolvedPause;
+        _pauseReason = resolvedReason;
         _order = _order.copyWith(
           currentStage: newStage,
           stageDescription: desc,
@@ -153,8 +169,8 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
           etaTimeDisplay: clockTime,
           etaBadgeLabel: isOrderDelivered
               ? 'Delivered'
-              : (isPaused ? 'PAUSED' : 'On Schedule'),
-          is100mBeaconActive: newStage == OrderTrackingStage.almostDone && currentMins <= 2,
+              : (resolvedPause ? 'PAUSED' : 'On Schedule'),
+          is100mBeaconActive: newStage == OrderTrackingStage.onTheWay && currentMins <= 2,
         );
       });
     });
@@ -178,20 +194,17 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   void onVendorConfirmReady() {
     final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
 
-    // 1. Sync to Firestore
     OrderSyncService.vendorConfirmFoodReady(_order.orderId, transitMins: transitMins);
 
-    // 2. Local state update
     setState(() {
-      // Moves to Stage 3 (Almost Done), but holds paused until Rider arrives!
       _isPaused = true;
       _pauseReason = 'Awaiting Rider Pickup';
       _order = _order.copyWith(
-        currentStage: OrderTrackingStage.almostDone,
+        currentStage: OrderTrackingStage.readyForPickup,
         etaMinutesRemaining: transitMins,
-        etaTimeDisplay: _calculateEtaClockTime(transitMins), // Clock time
+        etaTimeDisplay: _calculateEtaClockTime(transitMins),
         etaBadgeLabel: 'PAUSED',
-        stageDescription: 'Food packed! Courier arriving at store for pickup.',
+        stageDescription: 'Food packed! Ready at counter for rider pickup.',
       );
     });
   }
@@ -200,17 +213,15 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   void onRiderConfirmPickup() {
     final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
 
-    // 1. Sync to Firestore
     OrderSyncService.riderConfirmPickedUp(_order.orderId, _order.corridor.distanceKm);
 
-    // 2. Local state update: RESUMES THE TIMER!
     setState(() {
       _isPaused = false;
       _pauseReason = '';
       _order = _order.copyWith(
-        currentStage: OrderTrackingStage.almostDone,
+        currentStage: OrderTrackingStage.onTheWay,
         etaMinutesRemaining: transitMins,
-        etaTimeDisplay: _calculateEtaClockTime(transitMins), // Clock time
+        etaTimeDisplay: _calculateEtaClockTime(transitMins),
         etaBadgeLabel: 'Rider En Route',
         stageDescription: 'Courier picked up order! On the way via direct corridor.',
         is100mBeaconActive: transitMins <= 2,
@@ -220,10 +231,8 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
 
   /// ACTION 3: Rider delivers at Gate Pillar 2 drop table
   void onRiderConfirmDelivered() {
-    // 1. Sync to Firebase
     OrderSyncService.riderConfirmDelivered(_order.orderId);
 
-    // 2. Local state update
     setState(() {
       _isPaused = false;
       _pauseReason = '';
@@ -234,7 +243,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
       _order = _order.copyWith(
         currentStage: OrderTrackingStage.delivered,
         etaMinutesRemaining: 0,
-        etaTimeDisplay: deliveredTime, // Clock time: "12:44 PM"
+        etaTimeDisplay: deliveredTime,
         etaBadgeLabel: 'Delivered',
         stageDescription: 'Delivered safely to Gate Pillar 2 drop table. Photo proof logged.',
         is100mBeaconActive: false,
@@ -257,14 +266,13 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Always sync the active corridor with the latest Sub-Pin set in Settings
     final activeCorridor = _order.corridor.copyWith(
       dropOffLandmark: OrderTrackingModel.defaultSubPinLandmark,
     );
 
-    // 2. Dynamically update Milestone 4 text with the landmark
+    // Dynamically update Step 5 milestone description with landmark
     final updatedMilestones = _order.milestones.map((m) {
-      if (m.stageIndex == 4) {
+      if (m.stageIndex == 5) {
         return TrackingMilestoneModel(
           stageIndex: m.stageIndex,
           title: m.title,
@@ -275,7 +283,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
       return m;
     }).toList();
 
-    // Current sheet size tracking for smooth zero-bleed gating
     final double currentExtent =
     _sheetController.isAttached ? _sheetController.size : _minSheetExtent;
     final double expandProgress =
@@ -288,7 +295,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
       backgroundColor: ThemesColors.appSurface,
       body: Stack(
         children: <Widget>[
-          // LAYER 1: INTERACTIVE MAP VIEWPORT (Pan & Zoom Enabled)
+          // LAYER 1: MAP VIEWPORT
           Positioned.fill(
             child: CustomerLiveTrackingMapView(
               corridor: activeCorridor,
@@ -297,7 +304,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
               onRouteLoaded: (RouteInfo route) {
                 final int dynamicTransitMins =
                 EtaCalculator.calculateTransitMinutes(route.distanceKm);
-                // Sync live distance & duration from Geoapify into your state!
                 setState(() {
                   _order = _order.copyWith(
                     corridor: _order.corridor.copyWith(
@@ -310,7 +316,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
             ),
           ),
 
-          // LAYER 2: TOP FLOATING BAR & 100M BEACON ALERT
+          // LAYER 2: TOP BAR & 100M BEACON
           Positioned(
             top: 0,
             left: 0,
@@ -329,7 +335,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     showBackButton: false,
                     showProfileButton: true,
                   ),
-                  // Renders ONLY if the delivery milestone triggers it AND the user hasn't disabled it in Settings:
                   if (_order.is100mBeaconActive && OrderTrackingModel.isProximityBeaconEnabled)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -343,7 +348,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
             ),
           ),
 
-          // LAYER 3: RESPONSIVE DRAGGABLE BOTTOM SHEET
+          // LAYER 3: RESPONSIVE BOTTOM SHEET
           DraggableScrollableSheet(
             controller: _sheetController,
             initialChildSize: _minSheetExtent,
@@ -355,9 +360,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
               return Container(
                 decoration: BoxDecoration(
                   color: ThemesColors.appSurface,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(22),
-                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                   border: Border.all(
                     color: ThemesColors.darkCharcoal.withValues(alpha: 0.1),
                   ),
@@ -374,7 +377,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 16),
                   physics: const ClampingScrollPhysics(),
                   children: <Widget>[
-                    // 1. Drag Handle Pill (Tap or Drag to Toggle)
                     InkWell(
                       onTap: _toggleSheet,
                       borderRadius: BorderRadius.circular(10),
@@ -385,9 +387,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                           width: 38,
                           height: 4.5,
                           decoration: BoxDecoration(
-                            color: ThemesColors.darkCharcoal.withValues(
-                              alpha: 0.22,
-                            ),
+                            color: ThemesColors.darkCharcoal.withValues(alpha: 0.22),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -395,7 +395,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     ),
                     const SizedBox(height: 6),
 
-                    // 2. Component 1: Estimated Arrival Hero Card (always visible)
                     CustomerEstimatedArrivalHeroCard(
                       stage: _order.currentStage,
                       etaTimeDisplay: _order.etaTimeDisplay,
@@ -406,7 +405,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                       stageDescription: _order.stageDescription,
                     ),
 
-                    // 3. Components 2 & 3: REVEALED ONLY WHEN PULLED UP
                     Visibility(
                       visible: isExpanded,
                       maintainState: true,
@@ -417,7 +415,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                           children: <Widget>[
                             const SizedBox(height: 15),
 
-                            // Component 2: Sideways 4-Stage Stepper
+                            // Component 2: 5-Stage Stepper
                             CustomerStagePipelineStepper(
                               currentStage: _order.currentStage,
                               milestones: updatedMilestones,
@@ -425,7 +423,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
 
                             const SizedBox(height: 15),
 
-                            // Component 3: Rider Card (Direct Chat Trigger)
+                            // Component 3: Rider Contact Card
                             CustomerCourierContactCard(
                               courier: _order.courier,
                               onChatWithRider: _navigateToRiderChat,
@@ -433,7 +431,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
 
                             const SizedBox(height: 30),
 
-                            // Multi-Role Simulation Dock
                             _buildSimulationDock(),
                           ],
                         ),
@@ -502,7 +499,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              // 1. Vendor Confirms Food Ready
               Expanded(
                 child: ElevatedButton(
                   onPressed: isDelivered ? null : onVendorConfirmReady,
@@ -517,8 +513,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-
-              // 2. Rider Confirms Picked Up (Resumes Countdown!)
               Expanded(
                 child: ElevatedButton(
                   onPressed: isDelivered ? null : onRiderConfirmPickup,
@@ -533,8 +527,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-
-              // 3. Rider Confirms Delivered
               Expanded(
                 child: ElevatedButton(
                   onPressed: isDelivered ? null : onRiderConfirmDelivered,
