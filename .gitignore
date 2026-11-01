@@ -41,6 +41,14 @@ ephemeral/
 linux/flutter/ephemeral/
 windows/flutter/ephemeral/
 macos/Flutter/ephemeral/
+windows/flutter/generated_*
+linux/flutter/generated_*
+macos/Flutter/GeneratedPluginRegistrant.swift
+
+# AI Agent & Tooling directories
+.claude/
+.agents/
+skills-lock.json
 
 # Local Environment Variables & Debug scratch files
 .env*
