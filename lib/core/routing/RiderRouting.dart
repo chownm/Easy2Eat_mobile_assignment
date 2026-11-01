@@ -10,6 +10,8 @@ import '../../features/rider/presentation/RiderDashBoard/ui.dart';
 import '../../features/rider/presentation/RiderSetting/ui.dart';
 import '../../shared/widgets/ChatWindow/ui.dart';
 import '../../shared/widgets/settings/presentation/ProfileDetails.dart';
+import '../../shared/widgets/settings/presentation/password_setting_screen.dart';
+import '../../shared/widgets/settings/presentation/help_support_screen.dart';
 
 class AppRoutes {
   static const String login = '/login';
@@ -22,6 +24,8 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String chatWindow = '/chatWindow';
   static const String profileDetails = '/profileDetails';
+  static const String passwordSetting = '/passwordSetting';
+  static const String helpSupport = '/helpSupport';
 }
 
 class AppRouter {
@@ -49,6 +53,10 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const RiderSettingPage());
       case AppRoutes.profileDetails:
         return MaterialPageRoute(builder: (_) => const ProfileDetailsPage());
+      case AppRoutes.passwordSetting:
+        return MaterialPageRoute(builder: (_) => const PasswordSettingPage());
+      case AppRoutes.helpSupport:
+        return MaterialPageRoute(builder: (_) => const HelpSupportPage());
       case AppRoutes.chatWindow:
         final chatTitle = settings.arguments as String? ?? 'Customer';
 

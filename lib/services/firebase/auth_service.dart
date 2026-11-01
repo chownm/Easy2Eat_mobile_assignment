@@ -61,4 +61,15 @@ class AuthService {
       return false;
     }
   }
+
+  /// Signs out from both Google Sign-In and Firebase Auth
+  static Future<void> signOut() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
+    try {
+      UserSession.logout();
+    } catch (_) {}
+
+  }
 }

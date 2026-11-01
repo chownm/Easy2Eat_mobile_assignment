@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+  import 'package:flutter/material.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/features/rider/presentation/QrScan/QrScan.dart';
@@ -23,30 +23,24 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
         letterSpacing: 0.5,
       ),
       actions: [
-        //qr button
+        // QR Code Scanner Button
         IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) => const QrCodeScan()
-                )
-              );
-            },
-            icon: Icon(Icons.qr_code_scanner)
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const QrCodeScan(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.qr_code_scanner),
         ),
-        //profile Button
+        // Profile & Settings Popup Menu Button (without Logout)
         PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'profile') {
               Navigator.pushNamed(context, AppRoutes.settings);
             } else if (value == 'dashboard') {
               Navigator.pushNamed(context, AppRoutes.riderDashboard);
-            } else if (value == 'logout') {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                AppRoutes.login,
-                (route) => false,
-              );
             }
           },
           itemBuilder: (context) => const [
@@ -85,24 +79,6 @@ class RiderAppBar extends StatelessWidget implements PreferredSizeWidget {
                     "Dashboard",
                     style: TextStyle(
                       color: ThemesColors.darkCharcoal,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuDivider(),
-            PopupMenuItem<String>(
-              value: 'logout',
-              child: Row(
-                children: [
-                  Icon(Icons.logout, color: Colors.red, size: 22),
-                  SizedBox(width: 12),
-                  Text(
-                    "Logout",
-                    style: TextStyle(
-                      color: Colors.red,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -157,5 +133,3 @@ class RiderSubAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 }
-
-

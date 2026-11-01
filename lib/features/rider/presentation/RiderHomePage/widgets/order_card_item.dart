@@ -29,15 +29,17 @@ class OrderCardItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         children: [
-          Text(
-            "${quantity}x",
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: ThemesColors.darkCharcoal,
+          if (quantity > 0) ...[
+            Text(
+              "${quantity}x",
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: ThemesColors.darkCharcoal,
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Text(
               foodName,
@@ -48,14 +50,15 @@ class OrderCardItem extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            price,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: ThemesColors.darkCharcoal,
+          if (price.isNotEmpty && price != 'RM0.00' && !price.endsWith('RM 0.00'))
+            Text(
+              price,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: ThemesColors.darkCharcoal,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -64,6 +67,8 @@ class OrderCardItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String deliveryId = order.deliveryId;
+    final List<FoodItemData> foodList =
+        order.foodItems.isNotEmpty ? order.foodItems : defaultFoodItems;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -150,11 +155,11 @@ class OrderCardItem extends StatelessWidget {
             child: Scrollbar(
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: defaultFoodItems.length,
+                itemCount: foodList.length,
                 separatorBuilder: (context, i) =>
                     const Divider(height: 12, thickness: 0.5),
                 itemBuilder: (context, itemIndex) {
-                  final item = defaultFoodItems[itemIndex];
+                  final item = foodList[itemIndex];
                   return _foodDetailRow(
                     item.quantity,
                     item.name,
@@ -178,7 +183,7 @@ class OrderCardItem extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  order.pickupLocation,
+                  "Pick up: ${order.pickupLocation}",
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -202,7 +207,7 @@ class OrderCardItem extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  order.dropOffLocation,
+                  "Drop off: ${order.dropOffLocation}",
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,

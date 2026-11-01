@@ -19,7 +19,7 @@ class FoodItemData {
   }
 }
 
-/// Database Model for Delivery Order
+/// Database Model for Delivery Order (Matching Standard ORD Schema)
 class DeliveryOrderData {
   final String deliveryId;
   final String orderTime;
@@ -27,7 +27,8 @@ class DeliveryOrderData {
   final String dropOffLocation;
   final String earningAmount;
   final String status;
-  final bool isDelivered;
+  final String? assignedRiderId;
+  bool isDelivered;
   final List<FoodItemData> foodItems;
   bool isAccepted;
   bool isDeclined;
@@ -39,6 +40,7 @@ class DeliveryOrderData {
     required this.dropOffLocation,
     required this.earningAmount,
     required this.status,
+    this.assignedRiderId,
     required this.isDelivered,
     required this.foodItems,
     this.isAccepted = false,
@@ -46,45 +48,81 @@ class DeliveryOrderData {
   });
 
   factory DeliveryOrderData.fromMap(Map<String, dynamic> map, String docId) {
-    String formattedTime = "12:45 PM, 26 Oct";
-    final rawTime = map['orderTime'] ?? map['order_time'] ?? map['timestamp'] ?? map['timer'];
-    if (rawTime != null) {
-      formattedTime = rawTime.toString();
+    final String deliveryId = map['deliveryId'] as String? ?? '';
+
+    final String orderTime = map['orderTime'] as String? ?? '';
+
+    // Vendor Location (Pickup)
+    final String pickupLocation = map['location'] as String? ?? '';
+
+    // Customer Address (Drop Off)
+    final String dropOffLocation = map['deliveryAddress'] as String? ?? '';
+
+    final String? assignedRiderId = map['assignedRiderId'] as String?;
+
+    // Rider Earning Rule: (10% of totalPrice) + deliveryFee
+    final double totalPrice = (map['totalPrice'] as num?)?.toDouble() ?? 0.0;
+    final double deliveryFee = (map['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+
+    double calculatedEarningNum = (totalPrice * 0.10) + deliveryFee;
+
+    String finalEarning = "";
+    if (calculatedEarningNum > 0) {
+      finalEarning = "RM ${calculatedEarningNum.toStringAsFixed(2)}";
+    } else {
+      finalEarning = map['earningAmount'] as String? ?? "Unknown Amount";
     }
 
-    final foodItems = (map['foodItems'] as List<dynamic>?)
-            ?.map((item) => FoodItemData.fromMap(item as Map<String, dynamic>))
-            .toList() ??
-        [];
+    final String status = map['status'] as String? ?? 'pending';
+    final bool isDelivered = map['isDelivered'] as bool? ?? (status == 'delivered');
+    final bool isAccepted = (status == 'accepted' ||
+        status == 'picked_up' ||
+        status == 'vendor_qr_scanned' ||
+        map['isAccepted'] == true);
 
-    // Calculate total order amount from food items
-    double totalOrderAmount = 0.0;
-    for (final item in foodItems) {
-      final cleanPrice = item.price.replaceAll(RegExp(r'[^0-9.]'), '');
-      final priceNum = double.tryParse(cleanPrice) ?? 0.0;
-      totalOrderAmount += priceNum * item.quantity;
+    // Smartly parse orderItems string (e.g. "2x Big Mac, 1x French Fries") into individual items
+    List<FoodItemData> foodItems = [];
+    if (map['foodItems'] is List) {
+      foodItems = (map['foodItems'] as List<dynamic>)
+          .map((item) => FoodItemData.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } else if (map['orderItems'] is String &&
+        (map['orderItems'] as String).isNotEmpty) {
+      final String rawItemsStr = map['orderItems'] as String;
+      final List<String> itemParts = rawItemsStr.split(',');
+
+      foodItems = itemParts.map((part) {
+        final trimmed = part.trim();
+        final match = RegExp(r'^(\d+)\s*x?\s*(.+)').firstMatch(trimmed);
+        if (match != null) {
+          final int qty = int.tryParse(match.group(1)!) ?? 1;
+          final String itemName = match.group(2)!.trim();
+          return FoodItemData(
+            quantity: qty,
+            name: itemName,
+            price: '',
+          );
+        }
+        return FoodItemData(
+          quantity: 0,
+          name: trimmed,
+          price: '',
+        );
+      }).toList();
     }
-
-    // Earning is 10% of total order amount
-    double calculatedEarningNum = totalOrderAmount * 0.10;
-    if (calculatedEarningNum <= 0) {
-      calculatedEarningNum = 10.00; // Default fallback earning if price is zero
-    }
-
-    final String finalEarning = map['earningAmount'] as String? ??
-        "RM ${calculatedEarningNum.toStringAsFixed(2)}";
 
     return DeliveryOrderData(
-      deliveryId: docId,
-      orderTime: formattedTime,
-      pickupLocation: map['pickupLocation'] as String? ?? 'Pickup: Kuala Lumpur',
-      dropOffLocation: map['dropOffLocation'] as String? ?? 'Drop Off: Jalan Tun',
+      deliveryId: deliveryId,
+      orderTime: orderTime,
+      pickupLocation: pickupLocation,
+      dropOffLocation: dropOffLocation,
       earningAmount: finalEarning,
-      status: map['status'] as String? ?? 'pending',
-      isDelivered: map['isDelivered'] as bool? ?? false,
+      status: status,
+      assignedRiderId: assignedRiderId,
+      isDelivered: isDelivered,
       foodItems: foodItems,
-      isAccepted: map['isAccepted'] as bool? ?? false,
-      isDeclined: map['isDeclined'] as bool? ?? false,
+      isAccepted: isAccepted,
+      isDeclined: map['isDeclined'] as bool? ?? (status == 'declined'),
     );
   }
 }

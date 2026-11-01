@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/active_delivery.dart';
 import '../../../../core/constants/user_session.dart';
@@ -47,7 +48,21 @@ class OrderDetailState extends State<OrderDetail> {
       return widget.orders!;
     }
 
+    final myUid = UserSession.currentUid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
+
     try {
+      // Fetch rider's personal declined orders so they remain hidden only for this rider
+      if (myUid.isNotEmpty) {
+        final declinedSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(myUid)
+            .collection('declined_orders')
+            .get();
+        for (final doc in declinedSnapshot.docs) {
+          _globalDeclinedOrders.add(doc.id);
+        }
+      }
+
       final snapshot = await FirebaseFirestore.instance.collection('orders').get();
       if (snapshot.docs.isNotEmpty) {
         return snapshot.docs
@@ -60,14 +75,8 @@ class OrderDetailState extends State<OrderDetail> {
     return [];
   }
 
-  /// Default mock food items for list preview using RM
-  List<FoodItemData> get _defaultFoodItems => const [
-        FoodItemData(quantity: 1, name: "Pizza", price: "RM10.00"),
-        FoodItemData(quantity: 2, name: "Burger", price: "RM15.00"),
-        FoodItemData(quantity: 1, name: "Spaghetti", price: "RM12.00"),
-        FoodItemData(quantity: 2, name: "French Fries", price: "RM5.00"),
-        FoodItemData(quantity: 1, name: "Coca-Cola", price: "RM2.50"),
-      ];
+  /// Empty default list (100% real Firestore food data used)
+  List<FoodItemData> get _defaultFoodItems => const [];
 
   Future<void> _handleAccept(String deliveryId) async {
     setState(() {
@@ -75,10 +84,32 @@ class OrderDetailState extends State<OrderDetail> {
     });
 
     try {
+      final myUid = UserSession.currentUid ?? FirebaseAuth.instance.currentUser?.uid;
+      String? riderName = FirebaseAuth.instance.currentUser?.displayName;
+      String? riderPhone = FirebaseAuth.instance.currentUser?.phoneNumber;
+
+      // Fetch rider profile details from Firestore
+      if (myUid != null && myUid.isNotEmpty) {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+        if (userDoc.exists && userDoc.data() != null) {
+          riderName = userDoc.data()?['name'] as String? ?? riderName;
+          riderPhone = userDoc.data()?['phone'] as String? ??
+              userDoc.data()?['customerPhone'] as String? ??
+              riderPhone;
+        }
+      }
+
+      // Update Firestore directly (riderName & riderPhone can be null)
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(deliveryId)
-          .set({'isAccepted': true, 'status': 'accepted'}, SetOptions(merge: true));
+          .set({
+        'isAccepted': true,
+        'assignedRiderId': myUid,
+        'riderName': riderName,
+        'riderPhone': riderPhone,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (_) {}
 
     ActiveDeliveryState.currentDeliveryNumber = deliveryId;
@@ -97,10 +128,18 @@ class OrderDetailState extends State<OrderDetail> {
     });
 
     try {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(deliveryId)
-          .set({'isDeclined': true, 'status': 'declined'}, SetOptions(merge: true));
+      final myUid = UserSession.currentUid;
+      if (myUid != null && myUid.isNotEmpty) {
+        // Save to rider's personal declined_orders subcollection in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(myUid)
+            .collection('declined_orders')
+            .doc(deliveryId)
+            .set({
+          'declinedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
     } catch (_) {}
 
     if (mounted) {
@@ -156,18 +195,19 @@ class OrderDetailState extends State<OrderDetail> {
           .set({
         'status': 'delivered',
         'isDelivered': true,
+        'deliveredAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // 2. Send "Food is Delivered" message to customer chat subcollection in Firestore
+      // 2. Send "Food is Delivered" message to customer_chats/{deliveryId}/messages
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('chats')
-          .doc("Customer $deliveryId")
+          .collection('customer_chats')
+          .doc(deliveryId)
           .collection('messages')
           .add({
         'message': 'Food is Delivered',
-        'isSender': true,
+        'senderRole': 'rider',
+        'senderUid': uid,
         'time': currentTime,
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -186,8 +226,8 @@ class OrderDetailState extends State<OrderDetail> {
 
       if (mounted) {
         setState(() {
+          order.isDelivered = true;
           _globalDeclinedOrders.add(deliveryId);
-          order.isDeclined = true;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -216,6 +256,8 @@ class OrderDetailState extends State<OrderDetail> {
 
   @override
   Widget build(BuildContext context) {
+    final myUid = UserSession.currentUid ?? '';
+
     return FutureBuilder<List<DeliveryOrderData>>(
       future: _ordersFuture,
       builder: (context, snapshot) {
@@ -230,6 +272,9 @@ class OrderDetailState extends State<OrderDetail> {
         final orders = snapshot.data ?? [];
         final activeOrders = orders
             .where((order) =>
+                (order.assignedRiderId == null ||
+                    order.assignedRiderId!.isEmpty ||
+                    order.assignedRiderId == myUid) &&
                 !_globalDeclinedOrders.contains(order.deliveryId) &&
                 !order.isDeclined &&
                 order.status != 'delivered' &&
@@ -276,3 +321,6 @@ class OrderDetailState extends State<OrderDetail> {
     );
   }
 }
+
+// Alias for backwards compatibility
+typedef orderDetail = OrderDetail;

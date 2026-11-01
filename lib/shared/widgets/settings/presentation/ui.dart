@@ -1,10 +1,46 @@
-import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/shared/widgets/settings/presentation/settingsTileItem.dart';
+import 'package:easy2eat/services/firebase/auth_service.dart';
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
+
+  void _showLogoutConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text("Confirm Log Out"),
+          content: const Text("Are you sure you want to log out of your account?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await AuthService.signOut();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRoutes.login,
+                    (route) => false,
+                  );
+                }
+              },
+              child: const Text("Log Out"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,9 +61,15 @@ class SettingsPage extends StatelessWidget {
               title: "Password setting",
               icon: Icons.lock_outline,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password reset link sent to your email.')),
-                );
+                Navigator.pushNamed(context, AppRoutes.passwordSetting);
+              },
+            ),
+            const SizedBox(height: 12),
+            SettingsTileItem(
+              title: "Help & Support",
+              icon: Icons.help_outline,
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.helpSupport);
               },
             ),
             const SizedBox(height: 24),
@@ -43,14 +85,7 @@ class SettingsPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {
-                  UserSession.logout();
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    AppRoutes.login,
-                    (route) => false,
-                  );
-                },
+                onPressed: () => _showLogoutConfirmationDialog(context),
                 icon: const Icon(Icons.logout, color: Colors.red),
                 label: const Text(
                   "Log Out",

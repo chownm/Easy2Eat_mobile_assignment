@@ -23,7 +23,7 @@ class RiderMapsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: const RiderAppBar(title: "Rider Maps Page"),
-      body: GeoapifyMapWidget(deliveryNumber: activeNum, name: "Chow Booh Hwa"),
+      body: GeoapifyMapWidget(deliveryNumber: activeNum),
       bottomNavigationBar: SharedNavigationBar(
         currentIndex: _currentIndex,
         role: UserRole.rider,

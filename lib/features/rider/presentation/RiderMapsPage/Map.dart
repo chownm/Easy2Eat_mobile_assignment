@@ -10,12 +10,10 @@ import 'package:easy2eat/services/maps/map_api_service.dart';
 
 class GeoapifyMapWidget extends StatefulWidget {
   final String? deliveryNumber;
-  final String name;
 
   const GeoapifyMapWidget({
     super.key,
     this.deliveryNumber,
-    this.name = "Chow Booh Hwa",
   });
 
   @override
@@ -25,11 +23,9 @@ class GeoapifyMapWidget extends StatefulWidget {
 class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
   final MapController _mapController = MapController();
 
-  static const LatLng _defaultCenter = LatLng(3.1400, 101.6900); // KL Center
-  
   // Dynamic locations fetched from active order in Firestore
-  LatLng _vendorLocation = const LatLng(3.1400, 101.6900); // Vendor Store
-  LatLng _customerLocation = const LatLng(3.1500, 101.7000); // Customer Drop Off
+  LatLng _vendorLocation = const LatLng(3.0519, 101.6923); // Vendor Store
+  LatLng _customerLocation = const LatLng(3.0562, 101.6881); // Customer Drop Off
 
   String _destinationAddress = "No result";
   String _routeInfo = "No result";
@@ -58,6 +54,17 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
   LatLng get _activeDestination =>
       _isHeadingToCustomer ? _customerLocation : _vendorLocation;
 
+  void _toggleDestination() {
+    setState(() {
+      _isHeadingToCustomer = !_isHeadingToCustomer;
+    });
+    _loadDestinationAddress();
+    _mapController.move(_activeDestination, 15.0);
+    if (_currentPosition != null) {
+      _loadRouteInfo(_currentPosition!);
+    }
+  }
+
   Future<void> _loadOrderFromFirestore() async {
     if (_activeDeliveryNum.isEmpty) {
       if (mounted) {
@@ -77,16 +84,28 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        
-        final double pLat = (data['pickupLat'] as num?)?.toDouble() ?? 3.1400;
-        final double pLng = (data['pickupLng'] as num?)?.toDouble() ?? 101.6900;
-        final double dLat = (data['dropoffLat'] as num?)?.toDouble() ?? 3.1500;
-        final double dLng = (data['dropoffLng'] as num?)?.toDouble() ?? 101.7000;
+
+        // 1. Read vendor location and customer deliveryAddress string directly from Firestore
+        final String vendorAddressStr = data['location'] as String? ??
+            data['pickupLocation'] as String? ?? '';
+
+        final String customerAddressStr = data['deliveryAddress'] as String? ??
+            data['dropOffLocation'] as String? ?? '';
+
+        // 2. Geocode vendor address string to LatLng
+        final LatLng? vendorLatLng =
+            await MapApiService.getCoordinatesFromAddress(vendorAddressStr);
+
+        // 3. Geocode customer address string to LatLng
+        final LatLng? customerLatLng =
+            await MapApiService.getCoordinatesFromAddress(customerAddressStr);
 
         if (mounted) {
           setState(() {
-            _vendorLocation = LatLng(pLat, pLng);
-            _customerLocation = LatLng(dLat, dLng);
+            _vendorLocation = vendorLatLng ?? const LatLng(3.0519, 101.6923);
+            _customerLocation = customerLatLng ?? const LatLng(3.0562, 101.6881);
+            _destinationAddress =
+                _isHeadingToCustomer ? customerAddressStr : vendorAddressStr;
           });
         }
       }
@@ -108,7 +127,9 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
     );
     if (mounted) {
       setState(() {
-        _destinationAddress = address ?? "No result";
+        if (address != null && address.isNotEmpty) {
+          _destinationAddress = address;
+        }
       });
     }
   }
@@ -134,468 +155,311 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
 
     if (permission == LocationPermission.deniedForever) return;
 
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-      if (mounted) {
-        final newPos = LatLng(position.latitude, position.longitude);
-        setState(() {
-          _currentPosition = newPos;
-        });
-        _mapController.move(newPos, 15.0);
-        await _loadRouteInfo(newPos);
-      }
-    } catch (_) {}
-
-    Geolocator.getPositionStream(
+    Position pos = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
       ),
-    ).listen((Position position) {
-      if (mounted) {
-        final newPos = LatLng(position.latitude, position.longitude);
-        setState(() {
-          _currentPosition = newPos;
-        });
-        _loadRouteInfo(newPos);
-      }
-    });
+    );
+
+    final riderLatLng = LatLng(pos.latitude, pos.longitude);
+
+    if (mounted) {
+      setState(() {
+        _currentPosition = riderLatLng;
+      });
+
+      _mapController.move(riderLatLng, 15.0);
+      await _loadRouteInfo(riderLatLng);
+    }
   }
 
   Future<void> _loadRouteInfo(LatLng startPos) async {
-    if (_activeDeliveryNum.isEmpty) return;
-
     final target = _activeDestination;
-    final route = await MapApiService.getDeliveryRoute(
+
+    final routeInfo = await MapApiService.getDeliveryRoute(
       startLat: startPos.latitude,
       startLng: startPos.longitude,
       endLat: target.latitude,
       endLng: target.longitude,
     );
 
-    if (mounted) {
+    if (routeInfo != null && mounted) {
       setState(() {
-        if (route != null && route.routePoints.isNotEmpty) {
-          _routeInfo =
-              "${route.distanceKm.toStringAsFixed(1)} km • ${route.durationMinutes.toStringAsFixed(0)} mins away";
-          _routePoints = route.routePoints;
-        } else {
-          _routeInfo = "No result";
-          _routePoints = [startPos, target];
-        }
+        _routeInfo =
+            "${routeInfo.distanceKm.toStringAsFixed(1)} km • ${routeInfo.durationMinutes.ceil()} mins away";
+        _routePoints = routeInfo.routePoints;
       });
-    }
-  }
-
-  void _toggleDestinationPhase() {
-    if (_activeDeliveryNum.isEmpty) return;
-
-    setState(() {
-      _isHeadingToCustomer = !_isHeadingToCustomer;
-    });
-    _loadDestinationAddress();
-    if (_currentPosition != null) {
-      _loadRouteInfo(_currentPosition!);
-    } else {
-      _mapController.move(_activeDestination, 14.0);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String apiKey = MapApiService.geoapifyApiKey;
-    final String deliveryId = _activeDeliveryNum;
-    final bool hasActiveDelivery = deliveryId.isNotEmpty;
-    final LatLng destinationPoint = hasActiveDelivery ? _activeDestination : _defaultCenter;
+    final deliveryId = _activeDeliveryNum;
+    final hasActiveDelivery = deliveryId.isNotEmpty;
 
-    return Stack(
-      children: [
-        // Geoapify Map Tiles via FlutterMap
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: destinationPoint,
-            initialZoom: 14.0,
-          ),
-          children: [
-            // Tile Layer
-            TileLayer(
-              urlTemplate:
-                  'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=$apiKey',
-              userAgentPackageName: 'com.easy2eat.app',
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Stack(
+        children: [
+          // FlutterMap Tile Layer
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _activeDestination,
+              initialZoom: 14.0,
             ),
-
-            // Polyline Layer for Road Route (Only if active delivery exists)
-            if (hasActiveDelivery && _routePoints.isNotEmpty)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: _routePoints,
-                    strokeWidth: 5.0,
-                    color: ThemesColors.brandOrange,
-                  ),
-                ],
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=${MapApiService.geoapifyApiKey}',
+                userAgentPackageName: 'com.example.easy2eat',
               ),
-
-            // Markers Layer (Only if active delivery exists)
-            if (hasActiveDelivery)
+              if (_routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      color: ThemesColors.brandOrange,
+                      strokeWidth: 5.0,
+                    ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
-                  Marker(
-                    point: destinationPoint,
-                    width: 50,
-                    height: 50,
-                    child: _isHeadingToCustomer
-                        ? const Icon(Icons.location_on, color: Colors.red, size: 38)
-                        : Container(
-                            decoration: const BoxDecoration(
-                              color: ThemesColors.brandOrange,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.storefront_outlined,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                  ),
                   if (_currentPosition != null)
                     Marker(
                       point: _currentPosition!,
                       width: 50,
                       height: 50,
-                      child: const Icon(
-                        Icons.navigation,
-                        color: ThemesColors.brandOrange,
-                        size: 36,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.navigation_rounded,
+                          color: Colors.blue,
+                          size: 32,
+                        ),
                       ),
                     ),
+                  Marker(
+                    point: _activeDestination,
+                    width: 50,
+                    height: 50,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: ThemesColors.brandOrange,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 6)
+                        ],
+                      ),
+                      child: Icon(
+                        _isHeadingToCustomer
+                            ? Icons.person_pin_circle
+                            : Icons.storefront_outlined,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-          ],
-        ),
+            ],
+          ),
 
-        // Floating Action Button to Locate Rider GPS Position
-        if (hasActiveDelivery)
+          // Floating GPS Recenter Button
           Positioned(
+            top: 40,
             right: 16,
-            top: 16,
             child: FloatingActionButton.small(
-              heroTag: "locateRiderGps",
+              heroTag: 'recenter_map',
               backgroundColor: Colors.white,
               onPressed: _locateRiderGPS,
-              child: const Icon(
-                Icons.my_location,
-                color: ThemesColors.darkCharcoal,
-              ),
+              child: const Icon(Icons.my_location, color: ThemesColors.darkCharcoal),
             ),
           ),
 
-        // Floating Action Button to Re-open Card when Closed
-        if (!_showDeliveryCard && hasActiveDelivery)
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              heroTag: "reopenCard",
-              backgroundColor: ThemesColors.brandOrange,
-              onPressed: () {
-                setState(() {
-                  _showDeliveryCard = true;
-                });
-              },
-              child: const Icon(
-                Icons.local_shipping_outlined,
-                color: Colors.white,
+          // Floating Toggle Card Visibility
+          if (hasActiveDelivery)
+            Positioned(
+              top: 40,
+              left: 16,
+              child: FloatingActionButton.small(
+                heroTag: 'toggle_card',
+                backgroundColor: ThemesColors.darkCharcoal,
+                onPressed: () {
+                  setState(() {
+                    _showDeliveryCard = !_showDeliveryCard;
+                  });
+                },
+                child: Icon(
+                  _showDeliveryCard ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.white,
+                ),
               ),
             ),
-          ),
 
-        // Bottom Delivery Destination Overlay Card or No Active Delivery State
-        if (_showDeliveryCard)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 16,
-            child: hasActiveDelivery
-                ? Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+          // Bottom Active Delivery Overlay Card
+          if (hasActiveDelivery && _showDeliveryCard)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Interactive Header Status Badge (Tap to Toggle Destination)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Top Row: Delivery Number & Compact Phase Switch Badge & Close Icon
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    deliveryId,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: ThemesColors.darkCharcoal,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  // Compact Switch Badge with Arrow Icon
-                                  Flexible(
-                                    child: GestureDetector(
-                                      onTap: _toggleDestinationPhase,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _isHeadingToCustomer
-                                              ? ThemesColors.success.withValues(alpha: 0.15)
-                                              : ThemesColors.brandOrange.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: _isHeadingToCustomer
-                                                ? ThemesColors.success
-                                                : ThemesColors.brandOrange,
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              _isHeadingToCustomer
-                                                  ? Icons.person_pin_circle
-                                                  : Icons.storefront,
-                                              size: 13,
-                                              color: _isHeadingToCustomer
-                                                  ? ThemesColors.success
-                                                  : ThemesColors.brandOrange,
-                                            ),
-                                            const SizedBox(width: 3),
-                                            Flexible(
-                                              child: Text(
-                                                _isHeadingToCustomer
-                                                    ? "GOING TO CUSTOMER"
-                                                    : "GOING TO VENDOR",
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 9.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: _isHeadingToCustomer
-                                                      ? ThemesColors.success
-                                                      : ThemesColors.brandOrange,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 3),
-                                            Icon(
-                                              Icons.swap_horiz_rounded,
-                                              size: 14,
-                                              color: _isHeadingToCustomer
-                                                  ? ThemesColors.success
-                                                  : ThemesColors.brandOrange,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                        InkWell(
+                          onTap: _toggleDestination,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ThemesColors.brandOrange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: ThemesColors.brandOrange.withValues(alpha: 0.4),
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            // Compact Close Button
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _showDeliveryCard = false;
-                                });
-                              },
-                              child: const Padding(
-                                padding: EdgeInsets.all(4.0),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  size: 20,
-                                  color: ThemesColors.darkCharcoal,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _isHeadingToCustomer
+                                      ? "GOING TO CUSTOMER 🔄"
+                                      : "GOING TO VENDOR 🔄",
+                                  style: const TextStyle(
+                                    color: ThemesColors.brandOrange,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 8),
-
-                        // Route Info: Distance & Duration
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.navigation_outlined,
-                              color: ThemesColors.brandOrange,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _routeInfo,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: ThemesColors.brandOrange,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Destination Address
                         Text(
-                          _destinationAddress,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Action Buttons: Chat With Vendor & Chat With Customer
-                        Row(
-                          children: [
-                            // Chat With Vendor Button
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: ThemesColors.darkCharcoal,
-                                  side: const BorderSide(
-                                    color: ThemesColors.darkCharcoal,
-                                    width: 1.5,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  final chatTitle = "Vendor $deliveryId";
-                                  ChatListState.startOrOpenChat(chatTitle, context);
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.chatWindow,
-                                    arguments: chatTitle,
-                                  );
-                                },
-                                icon: const Icon(
-                                  Icons.storefront_outlined,
-                                  color: ThemesColors.darkCharcoal,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  "Chat Vendor",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-
-                            // Chat With Customer Button
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: ThemesColors.darkCharcoal,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  final chatTitle = "Customer $deliveryId";
-                                  ChatListState.startOrOpenChat(chatTitle, context);
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.chatWindow,
-                                    arguments: chatTitle,
-                                  );
-                                },
-                                icon: const Icon(
-                                  Icons.chat_bubble_outline_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  "Chat Customer",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )
-                : Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.map_outlined,
-                          size: 48,
-                          color: ThemesColors.brandOrange,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          "No Active Delivery Selected",
-                          style: TextStyle(
-                            fontSize: 16,
+                          deliveryId,
+                          style: const TextStyle(
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: ThemesColors.darkCharcoal,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Please go to the Delivery Page and tap 'View Route' on an accepted order to view the route.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Destination Address
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          color: ThemesColors.brandOrange,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _destinationAddress,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: ThemesColors.darkCharcoal,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+
+                    // ETA & Distance Info
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.two_wheeler_rounded,
+                          color: Colors.grey,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _routeInfo,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Chat Action Buttons (Vendor vs Customer)
+                    Row(
+                      children: [
+                        // Chat With Vendor Button
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[100],
+                              foregroundColor: ThemesColors.darkCharcoal,
+                              elevation: 0,
+                              side: const BorderSide(color: Color(0xFFEEEEEE)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              final chatTitle = "Vendor $deliveryId";
+                              ChatListState.startOrOpenChat(chatTitle, context);
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.chatWindow,
+                                arguments: chatTitle,
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.storefront_outlined,
+                              color: ThemesColors.darkCharcoal,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              "Chat Vendor",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Chat With Customer Button
+                        Expanded(
+                          child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: ThemesColors.darkCharcoal,
                               foregroundColor: Colors.white,
@@ -605,15 +469,23 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                               ),
                             ),
                             onPressed: () {
-                              Navigator.pushReplacementNamed(
+                              final chatTitle = "Customer $deliveryId";
+                              ChatListState.startOrOpenChat(chatTitle, context);
+                              Navigator.pushNamed(
                                 context,
-                                AppRoutes.riderHome,
+                                AppRoutes.chatWindow,
+                                arguments: chatTitle,
                               );
                             },
-                            child: const Text(
-                              "Go to Delivery Page",
+                            icon: const Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              "Chat Customer",
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -621,9 +493,59 @@ class _GeoapifyMapWidgetState extends State<GeoapifyMapWidget> {
                         ),
                       ],
                     ),
-                  ),
-          ),
-      ],
+                  ],
+                ),
+              ),
+            )
+          else if (!hasActiveDelivery)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.map_outlined,
+                      size: 48,
+                      color: ThemesColors.brandOrange,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "No Active Delivery Selected",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: ThemesColors.darkCharcoal,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Accept an order on the Delivery Page to view route directions.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

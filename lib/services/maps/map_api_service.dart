@@ -39,6 +39,27 @@ class MapApiService {
     }
   }
 
+  /// Forward Geocoding (Address String -> LatLng Coordinates)
+  static Future<LatLng?> getCoordinatesFromAddress(String address) async {
+    if (address.trim().isEmpty || geoapifyApiKey.isEmpty) return null;
+
+    try {
+      final GeoapifyResponse response = await _client.searchAddress(address, geoapifyApiKey);
+      final features = response.features ?? [];
+      if (features.isNotEmpty) {
+        final coords = features.first.geometry?.coordinates;
+        if (coords is List && coords.length >= 2) {
+          final double lon = (coords[0] as num).toDouble();
+          final double lat = (coords[1] as num).toDouble();
+          return LatLng(lat, lon);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('getCoordinatesFromAddress error: $e');
+    }
+    return null;
+  }
+
   /// Reverse Geocoding (Latitude, Longitude -> Formatted Address)
   static Future<String?> getAddressFromCoordinates(double lat, double lng) async {
     if (geoapifyApiKey.isEmpty) return null;

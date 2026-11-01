@@ -99,16 +99,18 @@ class _QrCodeScanState extends State<QrCodeScan> {
                     if (doc.exists && doc.data() != null) {
                       final String matchedId = doc.id;
 
-                      // Update the matched order in Firestore
+                      // Update order status to "on the way" upon scanning vendor QR code
                       await FirebaseFirestore.instance
                           .collection('orders')
                           .doc(matchedId)
                           .set({
-                        'qrScanned': true,
-                        'status': 'vendor_qr_scanned',
+                        'status': 'on the way',
+                        'isPickedUp': true,
+                        'pickedUpAt': FieldValue.serverTimestamp(),
+                        'updatedAt': FieldValue.serverTimestamp(),
                       }, SetOptions(merge: true));
 
-                      // Automatically set matched order as current active delivery
+                      // Set matched order as current active delivery
                       ActiveDeliveryState.currentDeliveryNumber = matchedId;
                       ActiveDeliveryState.markVendorQrScanned();
 
@@ -116,7 +118,7 @@ class _QrCodeScanState extends State<QrCodeScan> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'QR Code verified for $matchedId!',
+                              'QR Code verified for $matchedId! Status updated to "on the way".',
                             ),
                             backgroundColor: ThemesColors.success,
                           ),
@@ -125,12 +127,12 @@ class _QrCodeScanState extends State<QrCodeScan> {
                       }
                       break;
                     } else {
-                      // Show error if scanned QR code doesn't match any accepted order
+                      // Show error if scanned QR code doesn't match any order
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Invalid QR Code! Does not match any accepted order.',
+                              'Invalid QR Code! Does not match any order.',
                             ),
                             backgroundColor: Colors.red,
                           ),
