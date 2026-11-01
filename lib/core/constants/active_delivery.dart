@@ -9,7 +9,7 @@ class ActiveDeliveryState {
     if (_latestViewedRouteDeliveryNumber.isEmpty ||
         _latestViewedRouteDeliveryNumber == "Unknown Delivery" ||
         _latestViewedRouteDeliveryNumber == "Unknown User" ||
-        _latestViewedRouteDeliveryNumber == "Delivery #1234") {
+        _latestViewedRouteDeliveryNumber == "Unknown Delivery Number") {
       return "";
     }
     return _latestViewedRouteDeliveryNumber;
