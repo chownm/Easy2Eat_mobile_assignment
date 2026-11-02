@@ -61,7 +61,9 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
 
       final Map<String, dynamic> dataToStore = {
         ...updatedOrder.toJson(),
+        'status': updatedStatus,
         'stage': updatedStatus,
+        'preparationStatus': newPreparationStatus,
         'qrPayload': qrPayload,
         'qrBase64': qrBase64 ?? '',
         'updatedAt': FieldValue.serverTimestamp(),
