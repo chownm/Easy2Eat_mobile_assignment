@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/features/customer/customer_shell_screen.dart';
+import 'package:easy2eat/features/vendor/presentation/vendorMasterHomePage.dart';
 import '../../../services/firebase/auth_service.dart';
 import 'email_login_screen.dart';
 import 'email_signup_screen.dart';
@@ -17,6 +19,63 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
+
+  // // ---------------------------------------------------------------------------
+  // // ⚙️ ROBO TEST CONFIGURATION
+  // // ---------------------------------------------------------------------------
+  // static const String _activeRoboRole = 'vendor';
+  //
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _autoLoginForRoboTest();
+  // }
+  //
+  // Future<void> _autoLoginForRoboTest() async {
+  //   try {
+  //     await Future.delayed(const Duration(seconds: 1));
+  //
+  //     // Select credentials based on the configured role
+  //     String testEmail = 'test_customer@easy2eat.com';
+  //     if (_activeRoboRole == 'rider') {
+  //       testEmail = 'test_rider@easy2eat.com';
+  //     } else if (_activeRoboRole == 'vendor') {
+  //       testEmail = 'test_vendor@easy2eat.com';
+  //     }
+  //
+  //     final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+  //       email: testEmail,
+  //       password: '111111',
+  //     );
+  //
+  //     if (userCredential.user != null && mounted) {
+  //       UserSession.setRole(_activeRoboRole);
+  //
+  //       // Route into the role-specific shell
+  //       if (_activeRoboRole == 'customer') {
+  //         Navigator.pushAndRemoveUntil(
+  //           context,
+  //           MaterialPageRoute(
+  //             builder: (context) => const CustomerShellScreen(),
+  //           ),
+  //               (route) => false,
+  //         );
+  //       } else if (_activeRoboRole == 'rider') {
+  //         Navigator.pushReplacementNamed(context, AppRoutes.riderHome);
+  //       } else if (_activeRoboRole == 'vendor') {
+  //         Navigator.pushAndRemoveUntil(
+  //           context,
+  //           MaterialPageRoute(
+  //             builder: (context) => const VendorMasterHomePage(),
+  //           ),
+  //               (route) => false,
+  //         );
+  //       }
+  //     }
+  //   } catch (e) {
+  //     debugPrint('Robo auto-login bypassed/failed: $e');
+  //   }
+  // }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
