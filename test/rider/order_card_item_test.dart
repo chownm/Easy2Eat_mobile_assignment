@@ -7,8 +7,8 @@ void main() {
   final testOrder = DeliveryOrderData(
     deliveryId: "Delivery #0001",
     orderTime: "12:45 PM, 26 Oct",
-    pickupLocation: "Pickup: Kuala Lumpur",
-    dropOffLocation: "Drop Off: Jalan Tun",
+    pickupLocation: "Kuala Lumpur",
+    dropOffLocation: "Jalan Tun",
     earningAmount: "RM12.50",
     status: 'pending',
     isDelivered: false,
@@ -58,9 +58,9 @@ void main() {
       expect(find.text("Delivery #0001"), findsOneWidget);
       expect(find.text("12:45 PM, 26 Oct"), findsOneWidget);
 
-      // Verify locations
-      expect(find.text("Pickup: Kuala Lumpur"), findsOneWidget);
-      expect(find.text("Drop Off: Jalan Tun"), findsOneWidget);
+      // Verify locations matching exact widget text "Pick up:" and "Drop off:"
+      expect(find.text("Pick up: Kuala Lumpur"), findsOneWidget);
+      expect(find.text("Drop off: Jalan Tun"), findsOneWidget);
 
       // Verify earning
       expect(find.text("Earning:"), findsOneWidget);
@@ -141,5 +141,4 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsWidgets);
     });
   });
-
 }
