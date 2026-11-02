@@ -295,17 +295,22 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   void _showOrderSwitcherSheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: ThemesColors.appSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. Drag Handle
               Center(
                 child: Container(
                   width: 38,
@@ -316,7 +321,9 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              // 2. Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -339,10 +346,8 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.45,
-                ),
+
+              Flexible(
                 child: _allCustomerOrders.isEmpty
                     ? const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
@@ -350,6 +355,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                 )
                     : ListView.separated(
                   shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
                   itemCount: _allCustomerOrders.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
@@ -411,14 +417,16 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: ThemesColors.darkCharcoal.withValues(alpha: 0.6),
+                                      color: ThemesColors.darkCharcoal
+                                          .withValues(alpha: 0.6),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: isDelivered
                                     ? ThemesColors.freshGreen.withValues(alpha: 0.12)
