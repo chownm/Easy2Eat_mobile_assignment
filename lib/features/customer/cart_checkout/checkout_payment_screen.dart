@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/core/theme/theme.dart';
@@ -6,7 +7,9 @@ import 'package:easy2eat/features/customer/cart_checkout/widgets/delivery_pin_ca
 import 'package:easy2eat/features/customer/customer_shell_screen.dart';
 import 'package:easy2eat/features/customer/models/cart_item_model.dart';
 import 'package:easy2eat/features/customer/models/order_tracking_model.dart';
+import 'package:easy2eat/services/users/customer_profile_service.dart';
 import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
+import 'package:easy2eat/services/cart/cart_service.dart';
 
 enum PaymentMethod {
   tngEWallet,
@@ -41,25 +44,196 @@ class _CustomerCheckoutPaymentScreenState
   PaymentMethod _selectedPayment = PaymentMethod.tngEWallet;
   bool _isProcessing = false;
 
+  // Live profile states (De-mocked)
+  String _customerName = 'Valued Customer';
+  String _customerPhone = '+60 12-000 0000';
+  String _deliveryAddress = 'Cheras Traders Square • Block B';
+  String _subPinLandmark = OrderTrackingModel.defaultSubPinLandmark;
+
+  String get _currentUid =>
+      FirebaseAuth.instance.currentUser?.uid ??
+          UserSession.currentUid ??
+          'CUST-101';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final profile =
+    await CustomerProfileService.getProfileAndSettings(_currentUid);
+    if (!mounted) return;
+
+    setState(() {
+      if (profile != null) {
+        _customerName = profile.fullName;
+        _customerPhone = profile.phoneNumber;
+        if (profile.defaultDeliveryAddress.isNotEmpty) {
+          _deliveryAddress = profile.defaultDeliveryAddress;
+        }
+        if (profile.defaultSubPinLandmark.isNotEmpty) {
+          _subPinLandmark = profile.defaultSubPinLandmark;
+        }
+      } else {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          _customerName = user.displayName ?? 'Customer';
+          _customerPhone = user.phoneNumber ?? '+60 12-000 0000';
+        }
+      }
+    });
+  }
+
+  /// Dynamic DropOffPinModel using live landmark instead of static mock
+  DropOffPinModel get _currentPin => DropOffPinModel(
+    hubZoneTitle: _deliveryAddress,
+    microPinLandmark: _subPinLandmark,
+    referencePhotoNote: 'Designated Food Drop Table • GPS Verified',
+    distanceKm: 0.6,
+    isDirectUnstackedEligible: true,
+    scheduledShiftWindow: 'Today, 12:30 PM – 12:45 PM (Shift Break)',
+  );
+
+  void _showEditSubPinDialog() {
+    final TextEditingController controller =
+    TextEditingController(text: _subPinLandmark);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ThemesColors.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 38,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: ThemesColors.darkCharcoal.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Change Drop-Off Sub-Pin',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: ThemesColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Specify micro-drop point for couriers to drop your food',
+              style: TextStyle(
+                fontSize: 12,
+                color: ThemesColors.darkCharcoal.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: const TextStyle(
+                color: ThemesColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Sub-Pin Details',
+                hintText: 'e.g., Gate Pillar 2 (Table), Lobby Guardhouse',
+                labelStyle: TextStyle(
+                  color: ThemesColors.darkCharcoal.withValues(alpha: 0.65),
+                ),
+                prefixIcon: const Icon(
+                  Icons.location_on_outlined,
+                  color: ThemesColors.brandOrange,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: ThemesColors.brandOrange,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  final String newLandmark = controller.text.trim();
+                  if (newLandmark.isNotEmpty) {
+                    setState(() {
+                      _subPinLandmark = newLandmark;
+                      OrderTrackingModel.defaultSubPinLandmark = newLandmark;
+                    });
+                    CustomerProfileService.updateProfileField(
+                      _currentUid,
+                      {'defaultSubPinLandmark': newLandmark},
+                    );
+                    Navigator.pop(sheetContext);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ThemesColors.brandOrange,
+                  foregroundColor: ThemesColors.textOnPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  'Update Sub-Pin',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _placeOrder() async {
     setState(() => _isProcessing = true);
 
     try {
-      // 1. Generate clean Order ID
+      // 1. Generate live Order ID matching the team format
       final String orderId =
           'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
-      // 2. Format cart items into the multi-line string for Vendor kitchen ticket
+      // 2. Format cart items for the Vendor kitchen ticket
       final String orderItemsString = widget.cartItems
-          .map((item) => '${item.quantity}x ${item.title} (${item.customizationTag})')
+          .map((item) =>
+      '${item.quantity}x ${item.title} (${item.customizationTag})')
           .join('\n');
 
-      // 3. Resolve dynamic drop-off details with fallback to global settings
-      final String dropOffLandmark = OrderTrackingModel.defaultSubPinLandmark.isNotEmpty
-          ? OrderTrackingModel.defaultSubPinLandmark
-          : CartItemModel.mockDropOffPin.microPinLandmark;
+      // 3. Resolve dynamic drop-off location
+      final String dropOffLandmark = _subPinLandmark.isNotEmpty
+          ? _subPinLandmark
+          : OrderTrackingModel.defaultSubPinLandmark;
       final String fullDeliveryAddress =
-          '${CartItemModel.mockDropOffPin.hubZoneTitle}, $dropOffLandmark';
+          '$_deliveryAddress, $dropOffLandmark';
 
       // 4. Resolve vendor details dynamically from cart
       final String vendorId = widget.cartItems.isNotEmpty
@@ -67,9 +241,18 @@ class _CustomerCheckoutPaymentScreenState
           : 'VENDOR-001';
       final String vendorName = widget.cartItems.isNotEmpty
           ? widget.cartItems.first.merchantName
-          : 'APU Campus Cafeteria';
+          : 'C180 Kitchen Hub';
 
-      // 5. Build payload matching Vendor & Rider requirements and 5-stage lifecycle
+      // 5. Aggregate dynamic item instructions
+      final dynamicNotes = widget.cartItems
+          .map((e) => e.customizationTag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toSet()
+          .join(', ');
+      final String orderNotes =
+      dynamicNotes.isNotEmpty ? dynamicNotes : 'Standard preparation';
+
+      // 6. Build the complete 5-stage order document
       final Map<String, dynamic> orderPayload = {
         // Identification
         'orderId': orderId,
@@ -79,19 +262,19 @@ class _CustomerCheckoutPaymentScreenState
         'qrPayload': orderId,
         'qrBase64': '',
 
-        // Customer Information
-        'customerID': UserSession.currentUid ?? 'CUST-101',
-        'customerName': 'Marcus Tan',
-        'customerPhone': '+60 12-892 4118',
+        // Customer Information (Pure dynamic values)
+        'customerID': _currentUid,
+        'customerName': _customerName,
+        'customerPhone': _customerPhone,
         'deliveryAddress': fullDeliveryAddress,
         'dropOffLocation': 'Drop Off: $fullDeliveryAddress',
         'location': dropOffLandmark,
-        'notes': 'Please separate the sambal.',
+        'notes': orderNotes,
 
         // Vendor Information
         'vendorID': vendorId,
         'vendorName': vendorName,
-        'pickupLocation': 'Pickup: $vendorName, Cheras / Bukit Jalil',
+        'pickupLocation': 'Pickup: $vendorName, Cheras C180 Hub',
         'orderItems': orderItemsString,
 
         // Financial Breakdown
@@ -104,22 +287,23 @@ class _CustomerCheckoutPaymentScreenState
         'paymentMethod': _selectedPayment == PaymentMethod.tngEWallet
             ? "Touch 'n Go eWallet"
             : (_selectedPayment == PaymentMethod.onlineBankingFpx
-            ? "Online Banking"
-            : "Cash on Delivery"),
+            ? "Online Banking (FPX)"
+            : "Cash on Gate Drop"),
         'paymentStatus': 'paid',
 
-        // 5-Stage State Machine
-        'status': 'confirmed',           // Stage 1 active
-        'stage': 'confirmed',            // Dual-key compatibility
-        'preparationStatus': 'pending',   // Vendor's starting state
+        // 5-Stage State Machine Initial Values
+        'status': 'confirmed',
+        'stage': 'confirmed',
+        'preparationStatus': 'pending',
         'isPaused': false,
         'pauseReason': '',
+        'minutesRemaining': 15,
         'statusDescription':
         'Order received. Kitchen has queued your ticket for prep.',
         'orderTime': 'Just now',
         'timeAgo': 'Just now',
 
-        // Unassigned Rider placeholders
+        // Unassigned Courier Placeholders
         'assignedRiderId': null,
         'riderName': null,
         'riderPhone': null,
@@ -133,7 +317,7 @@ class _CustomerCheckoutPaymentScreenState
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      // 6. Execute Firestore write
+      // 7. Write to Firestore
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(orderId)
@@ -148,7 +332,10 @@ class _CustomerCheckoutPaymentScreenState
         ),
       );
 
-      // 7. Route directly to Live Tracking (Tab 2)
+      // Clear cart upon successful order creation
+      CartService.clearCart();
+
+      // 8. Route directly to Live Tracking (Tab 2) with the real order ID
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
@@ -183,7 +370,7 @@ class _CustomerCheckoutPaymentScreenState
         body: SafeArea(
           child: Column(
             children: <Widget>[
-              // Top Bar
+              // Top Bar (Back button only, profile hidden per wireframe)
               const SharedCustomerTopBar(
                 title: 'Checkout Confirmation',
                 showBackButton: true,
@@ -200,11 +387,12 @@ class _CustomerCheckoutPaymentScreenState
                     children: <Widget>[
                       // Section 1: Drop-off Address Card & Timing Toggle
                       CustomerDeliveryPinCard(
-                        pin: CartItemModel.mockDropOffPin,
+                        pin: _currentPin,
                         selectedTimingMode: _selectedTimingMode,
                         onTimingModeChanged: (DeliveryTimingMode mode) {
                           setState(() => _selectedTimingMode = mode);
                         },
+                        onEditPinTap: _showEditSubPinDialog,
                       ),
 
                       const SizedBox(height: 18),
@@ -248,7 +436,8 @@ class _CustomerCheckoutPaymentScreenState
                             const Divider(height: 20),
                             ...widget.cartItems.map((CartItemModel item) {
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                padding:
+                                const EdgeInsets.symmetric(vertical: 6),
                                 child: Row(
                                   children: <Widget>[
                                     Container(
@@ -257,7 +446,8 @@ class _CustomerCheckoutPaymentScreenState
                                       decoration: BoxDecoration(
                                         color: ThemesColors.darkCharcoal
                                             .withValues(alpha: 0.05),
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius:
+                                        BorderRadius.circular(8),
                                       ),
                                       child: const Icon(
                                         Icons.fastfood_outlined,
@@ -339,8 +529,8 @@ class _CustomerCheckoutPaymentScreenState
                               isSelected:
                               _selectedPayment == PaymentMethod.tngEWallet,
                               onTap: () => setState(
-                                    () => _selectedPayment =
-                                    PaymentMethod.tngEWallet,
+                                    () =>
+                                _selectedPayment = PaymentMethod.tngEWallet,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -356,8 +546,9 @@ class _CustomerCheckoutPaymentScreenState
                             ),
                             const SizedBox(height: 8),
                             _PaymentOptionTile(
-                              title: 'Cash on Delivery',
-                              subtitle: 'Pay when items arrive at gate drop table',
+                              title: 'Cash on Gate Drop',
+                              subtitle:
+                              'Exact cash placed on pillar drop table',
                               isSelected: _selectedPayment ==
                                   PaymentMethod.cashOnDelivery,
                               onTap: () => setState(

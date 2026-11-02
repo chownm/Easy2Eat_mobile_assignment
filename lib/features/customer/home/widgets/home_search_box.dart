@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:easy2eat/features/customer/models/merchant_model.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
 // Component 2: Search Input Bar
 class CustomerSearchHeaderWidget extends StatelessWidget {
   final String hintText;
+  final ValueChanged<String>? onChanged;
+  final TextEditingController? controller;
 
   const CustomerSearchHeaderWidget({
     super.key,
     required this.hintText,
+    this.onChanged,
+    this.controller,
   });
 
   @override
@@ -24,7 +27,8 @@ class CustomerSearchHeaderWidget extends StatelessWidget {
         ),
       ),
       child: TextField(
-        readOnly: true, // Static UI Mode
+        controller: controller,
+        onChanged: onChanged,
         style: const TextStyle(
           color: ThemesColors.darkCharcoal,
           fontSize: 14,
@@ -38,7 +42,7 @@ class CustomerSearchHeaderWidget extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
-          prefixIcon: Icon(
+          prefixIcon: const Icon(
             Icons.search_rounded,
             color: ThemesColors.darkCharcoal,
             size: 20,

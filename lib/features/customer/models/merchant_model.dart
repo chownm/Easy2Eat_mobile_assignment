@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-// Profile Menu Action Enum
 enum ProfileMenuAction {
   viewProfile,
   logOut,
@@ -20,6 +19,9 @@ class MerchantModel {
   final List<String> operationalTags;
   final int dailyPortionsRemaining;
   final bool isDirectUnstackedEligible;
+  final double unitPrice;
+  final String imageUrl;
+  final bool isInStock;
 
   const MerchantModel({
     required this.id,
@@ -33,24 +35,54 @@ class MerchantModel {
     required this.operationalTags,
     required this.dailyPortionsRemaining,
     required this.isDirectUnstackedEligible,
+    required this.unitPrice,
+    required this.imageUrl,
+    required this.isInStock,
   });
 
-  /// Consumes the Vendor teammate's 'VendorModel' backend schema[cite: 3].
+  /// Consumes the Vendor teammate's 'inventory' collection document schema directly[cite: 24, 25].
   factory MerchantModel.fromFirestore(DocumentSnapshot doc) {
-    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> data =
+        doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    final String name = data['itemName'] ??
+        data['title'] ??
+        data['vendorName'] ??
+        'Special Dish';
+    final double price = (data['price'] as num?)?.toDouble() ?? 10.0;
+    final int stock = (data['availableStock'] as num?)?.toInt() ??
+        (data['dailyPortionsRemaining'] as num?)?.toInt() ??
+        0;
+    final String status =
+    (data['inventoryStatus'] ?? 'in_stock').toString().toLowerCase();
+    final bool available = status == 'in_stock' && stock > 0;
 
     return MerchantModel(
       id: doc.id,
-      title: data['vendorName'] ?? data['storeName'] ?? data['title'] ?? 'Unnamed Store', // Maps to VendorModel[cite: 3]
-      dualLangSubtitle: data['description'] ?? '',
-      categoryTag: data['categoryTag'] ?? 'General',
-      rating: (data['rating'] as num?)?.toDouble() ?? 5.0,
+      title: name,
+      dualLangSubtitle: data['description'] ??
+          (stock > 0
+              ? 'C180 Food Court • $stock portions remaining'
+              : 'Sold out for current shift'),
+      categoryTag: data['categoryTag'] ?? 'Main Kitchen',
+      rating: (data['rating'] as num?)?.toDouble() ?? 4.8,
       distanceKm: (data['distanceKm'] as num?)?.toDouble() ?? 0.6,
-      hubRouteLabel: data['storeLocation'] ?? data['hubRouteLabel'] ?? 'Unknown Location', // Maps to VendorModel[cite: 3]
-      executionCostAndEta: data['executionCostAndEta'] ?? 'RM 1.50 Delivery',
-      operationalTags: List<String>.from(data['operationalTags'] ?? <String>['Direct <1km']),
-      dailyPortionsRemaining: (data['dailyPortionsRemaining'] as num?)?.toInt() ?? 99,
-      isDirectUnstackedEligible: data['isOpen'] ?? true, // Uses Vendor's 'isOpen' boolean[cite: 3]
+      hubRouteLabel: data['storeLocation'] ?? 'C180 Food Court',
+      executionCostAndEta:
+      'RM ${price.toStringAsFixed(2)} • 10 mins • RM 1.50 Delivery',
+      operationalTags: List<String>.from(
+        data['operationalTags'] ??
+            <String>[
+              'Direct <1km',
+              available ? '$stock Portions Left' : 'Sold Out',
+              'Kitchen Live',
+            ],
+      ),
+      dailyPortionsRemaining: stock,
+      isDirectUnstackedEligible: available,
+      unitPrice: price,
+      imageUrl: data['imageURL'] ?? '',
+      isInStock: available,
     );
   }
 }

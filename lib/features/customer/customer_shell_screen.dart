@@ -47,8 +47,7 @@ class _CustomerShellScreenState extends State<CustomerShellScreen> {
       const CustomerHomeScreen(),
       const CustomerCartCheckoutScreen(),
       CustomerTrackingScreen(
-        // Uses the real order ID if checked out, else falls back to mock for normal tab tapping
-        orderId: widget.activeOrderId ?? 'ORD-69643270',
+        orderId: widget.activeOrderId,
       ),
       const CustomerSettingsScreen(),
     ];

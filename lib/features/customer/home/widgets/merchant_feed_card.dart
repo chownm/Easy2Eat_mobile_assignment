@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:easy2eat/features/customer/models/merchant_model.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/features/customer/cart_checkout/widgets/item_customization_sheet.dart';
+import 'package:easy2eat/features/customer/models/merchant_model.dart';
 
-// Component 5: Merchant Feed Card
 class CustomerMerchantFeedCard extends StatelessWidget {
   final MerchantModel merchant;
 
@@ -12,87 +11,12 @@ class CustomerMerchantFeedCard extends StatelessWidget {
     required this.merchant,
   });
 
-  // Hardcoded category filter tags
   static const List<String> categoryFilters = <String>[
-    'All Hub Stores',
+    'All Hub Dishes',
     '< 1km Direct',
-    'Nasi Lemak',
-    'Hawker Wok',
+    'Main Dishes',
     'Beverages',
-    'Shift Pre-Order',
-    'Dual-Language',
-  ];
-
-  // Hardcoded merchant feed records
-  static const List<MerchantModel> merchantFeed = <MerchantModel> [
-    MerchantModel(
-      id: 'merchant_v02_chagee',
-      title: "CHAGEE - Trader Square",
-      dualLangSubtitle: 'Chinese Milk Tea • 中国奶茶专卖店',
-      categoryTag: 'Milk Tea',
-      rating: 4.9,
-      distanceKm: 1.1,
-      hubRouteLabel: 'C180 ↔ Cheras Traders Square',
-      executionCostAndEta: 'RM 8.50 • 10 mins • RM 1.50 Delivery',
-      operationalTags: <String>[
-        'Direct <1km',
-        'Unstacked Route',
-        'High-Contrast Ticket',
-      ],
-      dailyPortionsRemaining: 36,
-      isDirectUnstackedEligible: true,
-    ),
-    MerchantModel(
-      id: 'merchant_v01_shinzushi',
-      title: "Shin Zushi C180",
-      dualLangSubtitle: 'Japanese Sushi • 日本寿司店',
-      categoryTag: 'Sushi',
-      rating: 4.8,
-      distanceKm: 0.4,
-      hubRouteLabel: 'C180 Commercial Hub',
-      executionCostAndEta: 'RM 5.50 • 15 mins • RM 1.00 Delivery',
-      operationalTags: <String>[
-        'Direct <1km',
-        '4-Stage Kitchen Tracker',
-        'QR Verified Bag',
-      ],
-      dailyPortionsRemaining: 200,
-      isDirectUnstackedEligible: true,
-    ),
-    MerchantModel(
-      id: 'merchant_v03_baiwei',
-      title: "Bai Wei Mini Bowl 百味小碗菜",
-      dualLangSubtitle: 'Chinese Cuisine • 中国食品',
-      categoryTag: 'Chinese Food',
-      rating: 4.7,
-      distanceKm: 1.0,
-      hubRouteLabel: 'C180 ↔ Cheras Traders Square',
-      executionCostAndEta: 'RM 8.50 • 8 mins • RM 1.50 Delivery',
-      operationalTags: <String>[
-        'Direct <1km',
-        'Live Dishes Stock',
-        'Shift Pre-Order',
-      ],
-      dailyPortionsRemaining: 24,
-      isDirectUnstackedEligible: true,
-    ),
-    MerchantModel(
-      id: 'merchant_v04_hanambbq',
-      title: 'Hanam BBQ - Cheras C180',
-      dualLangSubtitle: 'Korean BBQ • 韩国烧烤',
-      categoryTag: 'KoreanBBQ',
-      rating: 4.6,
-      distanceKm: 0.5,
-      hubRouteLabel: 'C180 Commercial Hub',
-      executionCostAndEta: 'RM 5.50 • 14 mins • RM 1.20 Delivery',
-      operationalTags: <String>[
-        'Direct <1km',
-        'Hot food',
-        'Fast food',
-      ],
-      dailyPortionsRemaining: 12,
-      isDirectUnstackedEligible: true,
-    ),
+    'Portions In Stock',
   ];
 
   @override
@@ -112,28 +36,38 @@ class CustomerMerchantFeedCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            // Restaurant Imagery Bounding Box
+            // Image Box: Uses vendor's imageURL if populated, otherwise stylized dish placeholder
             AspectRatio(
               aspectRatio: 16 / 8,
-              child: Container(
+              child: merchant.imageUrl.isNotEmpty
+                  ? Image.network(
+                merchant.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: ThemesColors.darkCharcoal.withValues(alpha: 0.05),
+                  child: const Icon(Icons.fastfood_outlined,
+                      size: 36, color: Colors.grey),
+                ),
+              )
+                  : Container(
                 color: ThemesColors.darkCharcoal.withValues(alpha: 0.05),
                 child: Center(
                   child: Icon(
-                    Icons.image_outlined,
-                    size: 36,
-                    color: ThemesColors.darkCharcoal.withValues(alpha: 0.25),
+                    Icons.restaurant_menu_rounded,
+                    size: 38,
+                    color: ThemesColors.brandOrange.withValues(alpha: 0.5),
                   ),
                 ),
               ),
             ),
 
-            // Card Metadata and Action Body
-            Padding(padding: const EdgeInsets.all(14),
+            Padding(
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // Row 1: Restaurant Title + Review Star Counter
+                  // Title + Rating
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -158,31 +92,25 @@ class CustomerMerchantFeedCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: ThemesColors.darkCharcoal.withValues(
-                                    alpha: 0.65
-                                ),
+                                color: ThemesColors.darkCharcoal
+                                    .withValues(alpha: 0.65),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
-                            )
+                            ),
                           ],
-                        ) ,
+                        ),
                       ),
                       const SizedBox(width: 10),
-
-                      // Review Star Counter Pill
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
-                        ),
+                            horizontal: 8, vertical: 5),
                         decoration: BoxDecoration(
                           color: ThemesColors.appSurface,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: ThemesColors.darkCharcoal.withValues(
-                              alpha: 0.2,
-                            ),
+                            color: ThemesColors.darkCharcoal
+                                .withValues(alpha: 0.2),
                           ),
                         ),
                         child: Row(
@@ -204,21 +132,19 @@ class CustomerMerchantFeedCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
 
                   const SizedBox(height: 8),
 
-                  // Row 2: Distance, Hub Corridor and Execution Cost
                   Text(
                     '${merchant.hubRouteLabel} • ${merchant.executionCostAndEta}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: ThemesColors.darkCharcoal.withValues(
-                          alpha: 0.75
-                      ),
+                      color:
+                      ThemesColors.darkCharcoal.withValues(alpha: 0.75),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -226,29 +152,33 @@ class CustomerMerchantFeedCard extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  // Row 3: Operational and Dietary Tags
+                  // Tags
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: merchant.operationalTags.map((String tag) {
+                      final bool isSoldOutTag = tag == 'Sold Out';
                       return Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: ThemesColors.appSurface,
+                          color: isSoldOutTag
+                              ? Colors.red.shade50
+                              : ThemesColors.appSurface,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: ThemesColors.darkCharcoal.withValues(
-                              alpha: 0.22,
-                            ),
+                            color: isSoldOutTag
+                                ? Colors.red.shade200
+                                : ThemesColors.darkCharcoal
+                                .withValues(alpha: 0.22),
                           ),
                         ),
                         child: Text(
                           tag,
-                          style: const TextStyle(
-                            color: ThemesColors.darkCharcoal,
+                          style: TextStyle(
+                            color: isSoldOutTag
+                                ? Colors.red.shade800
+                                : ThemesColors.darkCharcoal,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -259,22 +189,31 @@ class CustomerMerchantFeedCard extends StatelessWidget {
 
                   const SizedBox(height: 14),
 
-                  // Row 4: Add to cart button
+                  // Add to Cart Action
                   ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: merchant.isInStock
+                        ? () {
                       showModalBottomSheet<void>(
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
                         builder: (BuildContext sheetContext) {
                           return ItemCustomizationSheet(merchant: merchant);
-                          },
+                        },
                       );
-                    },
-                    icon: const Icon(Icons.add_shopping_cart_rounded),
-                    label: const Text(
-                      'Add to Cart',
-                      style: TextStyle(
+                    }
+                        : null,
+                    icon: Icon(
+                      merchant.isInStock
+                          ? Icons.add_shopping_cart_rounded
+                          : Icons.block_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      merchant.isInStock
+                          ? 'Add to Cart • RM ${merchant.unitPrice.toStringAsFixed(2)}'
+                          : 'Currently Sold Out',
+                      style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
@@ -284,6 +223,10 @@ class CustomerMerchantFeedCard extends StatelessWidget {
                       elevation: 0,
                       backgroundColor: ThemesColors.brandOrange,
                       foregroundColor: ThemesColors.appSurface,
+                      disabledBackgroundColor:
+                      ThemesColors.darkCharcoal.withValues(alpha: 0.1),
+                      disabledForegroundColor:
+                      ThemesColors.darkCharcoal.withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -291,7 +234,7 @@ class CustomerMerchantFeedCard extends StatelessWidget {
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
