@@ -13,13 +13,7 @@ class OrderDetailWidget extends StatefulWidget {
 
 class _OrderDetailWidgetState extends State<OrderDetailWidget> {
   final ScrollController _scrollController = ScrollController();
-  late Future<List<OrderModel>> _ordersFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _ordersFuture = _fetchVendorOrders();
-  }
+  bool _isRefreshing = false;
 
   @override
   void dispose() {
@@ -27,97 +21,33 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
     super.dispose();
   }
 
-  // Manually trigger a refresh to fetch updated Firestore orders
-  void _refreshOrders() {
+  /// Manually triggers a refresh UI state (e.g., re-fetching or syncing UI)
+  Future<void> _handleRefresh() async {
     setState(() {
-      _ordersFuture = _fetchVendorOrders();
+      _isRefreshing = true;
     });
-  }
+    // Simulate a brief network/sync pause for smooth UX feedback
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() {
+      _isRefreshing = false;
+    });
 
-  /// 1. Fetch active orders from Firestore (seeds mock data if collection is empty)
-  Future<List<OrderModel>> _fetchVendorOrders() async {
-    try {
-      final collectionRef = FirebaseFirestore.instance.collection('orders');
-      final snapshot = await collectionRef.get();
-
-      if (snapshot.docs.isEmpty) {
-        debugPrint("Firestore 'orders' is empty. Seeding initial mock orders...");
-        await _seedInitialMockOrders(collectionRef);
-        final freshSnapshot = await collectionRef.get();
-        return freshSnapshot.docs
-            .map((doc) => OrderModel.fromJson(doc.data()))
-            .where((order) => order.status != 'delivered' && !order.isDelivered)
-            .toList();
-      }
-
-      return snapshot.docs
-          .map((doc) => OrderModel.fromJson(doc.data()))
-          .where((order) => order.status != 'delivered' && !order.isDelivered)
-          .toList();
-    } catch (e) {
-      debugPrint("Failed to fetch vendor orders: $e");
-      return [];
-    }
-  }
-
-  /// 2. Seed mock orders so the UI isn't empty on first launch
-  Future<void> _seedInitialMockOrders(CollectionReference collectionRef) async {
-    final List<OrderModel> mockOrders = [
-      OrderModel(
-        orderID: 'ORD-9824',
-        customerID: 'CUST-001',
-        customerName: 'Alex',
-        customerPhone: '+60123456789',
-        orderItems: '2x Big Mac, 1x French Fries',
-        itemsSubtotal: 35.00,
-        deliveryFee: 5.00,
-        taxAmount: 2.40,
-        isPaid: true,
-        paymentMethod: 'Credit Card',
-        status: 'pending',
-        timeAgo: '2 mins ago',
-        location: 'APU Campus Cafeteria, Bukit Jalil',
-        deliveryAddress: 'Residensi Park, Bukit Jalil, KL',
-        notes: 'Less ice on drinks, please.',
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🔄 Orders refreshed successfully!'),
+        duration: Duration(seconds: 1),
       ),
-      OrderModel(
-        orderID: 'ORD-9825',
-        customerID: 'CUST-002',
-        customerName: 'Sarah Lim',
-        customerPhone: '+60198765432',
-        orderItems: '1x Chicken Rice, 1x Teh Tarik',
-        itemsSubtotal: 18.00,
-        deliveryFee: 4.00,
-        taxAmount: 1.32,
-        isPaid: true,
-        paymentMethod: 'Online Banking',
-        status: 'pending',
-        timeAgo: '5 mins ago',
-        location: 'APU Campus Cafeteria, Bukit Jalil',
-        deliveryAddress: 'Enterprise Park, Bukit Jalil, KL',
-        notes: 'Extra chili sauce on the side.',
-      ),
-    ];
-
-    for (var order in mockOrders) {
-      final qrPayload = OrderQRGenerator.generatePayload(order);
-      final qrBase64 = await OrderQRGenerator.generateQrBase64(order);
-
-      final Map<String, dynamic> dataToStore = {
-        ...order.toJson(),
-        'qrPayload': qrPayload,
-        'qrBase64': qrBase64 ?? '',
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-
-      await collectionRef.doc(order.orderID).set(dataToStore, SetOptions(merge: true));
-    }
+    );
   }
 
-  /// 3. Advance order status & automatically sync QR data to Firestore on 'Accept & Prepare'
-  Future<void> _advanceOrderStatus(OrderModel order, String newStatus) async {
+  /// Advance order status & automatically sync QR data to Firestore
+  Future<void> _advanceOrderStatus(OrderModel order, String newPreparationStatus) async {
     try {
-      final updatedOrder = order.copyWith(status: newStatus);
+      final updatedOrder = order.copyWith(
+        preparationStatus: newPreparationStatus,
+        status: newPreparationStatus == 'done' ? 'done' : order.status,
+      );
 
       final qrPayload = OrderQRGenerator.generatePayload(updatedOrder);
       final qrBase64 = await OrderQRGenerator.generateQrBase64(updatedOrder);
@@ -134,19 +64,19 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
           .doc(updatedOrder.orderID)
           .set(dataToStore, SetOptions(merge: true));
 
-      debugPrint("Order ${updatedOrder.orderID} status updated & QR synced to cloud.");
-      _refreshOrders();
+      debugPrint("Order ${updatedOrder.orderID} preparationStatus updated to '$newPreparationStatus' & synced.");
     } catch (e) {
-      debugPrint("Failed to update order status: $e");
+      debugPrint("Failed to update order preparation status: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<OrderModel>>(
-      future: _ordersFuture,
+    // Use StreamBuilder for real-time synchronization with Firestore
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('orders').snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !_isRefreshing) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(32.0),
@@ -155,11 +85,19 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
           );
         }
 
-        final orders = snapshot.data ?? [];
+        final docs = snapshot.data?.docs ?? [];
+        final orders = docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['orderID'] ??= doc.id;
+          return OrderModel.fromJson(data);
+        }).where((order) => order.preparationStatus != 'done' && !order.isDelivered).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --------------------------------------------------
+            // Title Header with Manual Refresh Button
+            // --------------------------------------------------
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -172,8 +110,12 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  onPressed: _refreshOrders,
+                  onPressed: _isRefreshing ? null : _handleRefresh,
+                  icon: AnimatedRotation(
+                    turns: _isRefreshing ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: const Icon(Icons.refresh_rounded, size: 20, color: Colors.black87),
+                  ),
                   tooltip: 'Refresh Orders',
                 ),
               ],
@@ -192,25 +134,29 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
                 child: const Text('All caught up! No active orders', style: TextStyle(color: Colors.grey)),
               )
             else
-              Container(
-                height: 450,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: ListView.builder(
+            // Added RefreshIndicator for pull-to-refresh functionality
+              RefreshIndicator(
+                onRefresh: _handleRefresh,
+                child: Container(
+                  height: 450,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  child: Scrollbar(
                     controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      return _buildInteractiveOrderCard(context, order);
-                    },
+                    thumbVisibility: true,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: orders.length,
+                      itemBuilder: (context, index) {
+                        final order = orders[index];
+                        return _buildInteractiveOrderCard(context, order);
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -225,8 +171,9 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
     String nextStatusText;
     String nextStatusValue;
 
-    switch (order.status) {
+    switch (order.preparationStatus) {
       case 'pending':
+      case 'received':
         statusColor = Colors.orange;
         nextStatusText = 'Accept & Prepare -->';
         nextStatusValue = 'preparing';
@@ -273,50 +220,56 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    order.orderID,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => Dialog(
-                          backgroundColor: Colors.transparent,
-                          child: OrderQrDialogWidget(order: order),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        order.orderID,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black,
                         ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.qr_code_2, size: 15, color: Colors.black87),
-                          SizedBox(width: 3),
-                          Text(
-                            'QR',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            child: OrderQrDialogWidget(order: order),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.qr_code_2, size: 15, color: Colors.black87),
+                            SizedBox(width: 3),
+                            Text(
+                              'QR',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -324,7 +277,7 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  order.status.toUpperCase().replaceAll(',', ' '),
+                  order.preparationStatus.toUpperCase().replaceAll(',', ' '),
                   style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -339,6 +292,7 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 12),
 
@@ -358,7 +312,7 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
                   ),
                 ],
               ),
-              if (order.status != 'done')
+              if (order.preparationStatus != 'done')
                 InkWell(
                   onTap: () {
                     _advanceOrderStatus(order, nextStatusValue);

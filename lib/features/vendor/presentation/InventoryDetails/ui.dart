@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 import 'package:easy2eat/features/vendor/providers/value-model/inventory-model.dart';
 import 'package:easy2eat/features/vendor/presentation/InventoryDetails/inventory-management.dart';
@@ -29,10 +28,9 @@ class _StockManagementPageState extends State<StockManagementPage> {
           ),
         ),
       ),
-      // Render the dedicated inventory list & control widget safely
       body: const SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
-        child: InventoryListWidget(), // 👈 Fixed: Using InventoryListWidget instead of self-recursion
+        child: InventoryListWidget(),
       ),
     );
   }
@@ -47,7 +45,6 @@ class InventoryListWidget extends StatefulWidget {
 }
 
 class _InventoryListWidgetState extends State<InventoryListWidget> {
-  // Future to manage native Firestore inventory loading
   late Future<List<InventoryModel>> _inventoryFuture;
 
   @override
@@ -56,7 +53,6 @@ class _InventoryListWidgetState extends State<InventoryListWidget> {
     _loadInventory();
   }
 
-  // Load or refresh inventory list from Cloud Firestore
   void _loadInventory() {
     setState(() {
       _inventoryFuture = InventoryService.fetchAndEnsureInventory();
@@ -134,24 +130,31 @@ class _InventoryListWidgetState extends State<InventoryListWidget> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // 💡 关键修改：用 Expanded 和 Flexible + ellipsis 包裹长文本，彻底消灭 Debug 条码
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  item.itemName,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: isSoldOut ? Colors.grey : ThemesColors.textPrimary,
+                                Flexible(
+                                  child: Text(
+                                    item.itemName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: isSoldOut ? Colors.grey : ThemesColors.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  '(${item.itemID})',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                Flexible(
+                                  child: Text(
+                                    '(${item.itemID})',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
@@ -197,12 +200,16 @@ class _InventoryListWidgetState extends State<InventoryListWidget> {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
 
                       // Stock Management Control Buttons (+ / -)
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, size: 32, color: ThemesColors.darkCharcoal),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.remove_circle_outline, size: 28, color: ThemesColors.darkCharcoal),
                             onPressed: () async {
                               if (item.availableStock > 0) {
                                 await InventoryService.updateStock(item.itemID, item.availableStock - 1);
@@ -210,12 +217,17 @@ class _InventoryListWidgetState extends State<InventoryListWidget> {
                               }
                             },
                           ),
-                          Text(
-                            '${item.availableStock}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: ThemesColors.textPrimary),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              '${item.availableStock}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: ThemesColors.textPrimary),
+                            ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add_circle_outline, size: 22, color: ThemesColors.textPrimary),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.add_circle_outline, size: 28, color: ThemesColors.textPrimary),
                             onPressed: () async {
                               await InventoryService.updateStock(item.itemID, item.availableStock + 1);
                               _loadInventory();
@@ -234,7 +246,6 @@ class _InventoryListWidgetState extends State<InventoryListWidget> {
     );
   }
 
-  // Dialog to edit item price
   void _showEditPriceDialog(BuildContext context, InventoryModel item) {
     final priceController = TextEditingController(text: item.price.toStringAsFixed(2));
 
@@ -272,7 +283,6 @@ class _InventoryListWidgetState extends State<InventoryListWidget> {
     );
   }
 
-  // Dialog to add a new inventory item
   void _showAddItemDialog(BuildContext context) {
     final nameController = TextEditingController();
     final priceController = TextEditingController();

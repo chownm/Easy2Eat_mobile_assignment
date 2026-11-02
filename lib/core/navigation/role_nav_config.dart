@@ -43,7 +43,7 @@ class RoleNavConfig {
           NavigationTabItem(
             label: 'Chat',
             icon: Icons.radar_outlined,
-            activeIcon: Icons.radar_rounded,
+            activeIcon: Icons.chat_rounded,
           ),
           NavigationTabItem(
             label: 'Settings',

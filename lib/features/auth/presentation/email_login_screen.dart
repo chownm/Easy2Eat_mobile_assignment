@@ -4,6 +4,7 @@ import 'package:easy2eat/core/routing/RiderRouting.dart';
 import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/features/customer/customer_shell_screen.dart';
 import 'package:easy2eat/features/rider/presentation/RiderHomePage/ui.dart';
+import 'package:easy2eat/features/vendor/presentation/vendorMasterHomePage.dart';
 
 import '../../../services/firebase/create_user_profile.dart';
 
@@ -70,13 +71,12 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
                 (route) => false,
           );
         } else if (getRole == 'vendor') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vendor portal is configured on the Vendor build.'),
-              backgroundColor: ThemesColors.brandOrange,
-            ),
-          );
-        } else {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const VendorMasterHomePage()),
+              (route) => false,
+            );
+        }else {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
