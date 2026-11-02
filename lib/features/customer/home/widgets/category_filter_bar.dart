@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:easy2eat/features/customer/models/merchant_model.dart';
 import 'package:easy2eat/core/theme/theme.dart';
 
 // Component 3: Scrollable Category Bar
 class CustomerCategoryFilterStrip extends StatelessWidget {
   final List<String> categories;
   final int selectedIndex;
+  final ValueChanged<int>? onCategorySelected;
 
   const CustomerCategoryFilterStrip({
     super.key,
     required this.categories,
     required this.selectedIndex,
+    this.onCategorySelected,
   });
 
   @override
@@ -27,7 +28,7 @@ class CustomerCategoryFilterStrip extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         itemCount: categories.length,
         separatorBuilder: (BuildContext context, int index) =>
-        const SizedBox(width: 8),
+          const SizedBox(width: 8),
         itemBuilder: (BuildContext context, int index) {
           final bool isSelected = index == selectedIndex;
           final String categoryLabel = categories[index];
@@ -45,9 +46,7 @@ class CustomerCategoryFilterStrip extends StatelessWidget {
               ),
             ),
             child: InkWell(
-              onTap: () {
-                // will dispatch category selection to customerHomeProvider
-              },
+              onTap: () => onCategorySelected?.call(index),
               customBorder: const StadiumBorder(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -61,8 +60,8 @@ class CustomerCategoryFilterStrip extends StatelessWidget {
                           ? ThemesColors.appSurface
                           : ThemesColors.darkCharcoal,
                       fontSize: 13,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
+                      fontWeight:
+                      isSelected ? FontWeight.w700
                           : FontWeight.w500,
                     ),
                   ),

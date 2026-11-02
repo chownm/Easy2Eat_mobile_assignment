@@ -18,9 +18,17 @@ class RiderChat extends StatefulWidget {
 
 class _RiderChatState extends State<RiderChat> {
   int get _currentIndex => 2;
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
+    final filteredChats = ChatListState.activeChats.where((chat) {
+      if (_searchQuery.trim().isEmpty) return true;
+      final query = _searchQuery.toLowerCase();
+      return chat.title.toLowerCase().contains(query) ||
+          chat.subtitle.toLowerCase().contains(query);
+    }).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: const RiderAppBar(title: "Rider Chat Page"),
@@ -29,11 +37,17 @@ class _RiderChatState extends State<RiderChat> {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           children: [
-            // Search Bar
-            const SearchMessages(),
+            // Search Bar with Real-Time Filtering
+            SearchMessages(
+              onChanged: (query) {
+                setState(() {
+                  _searchQuery = query;
+                });
+              },
+            ),
             const SizedBox(height: 16),
 
-            ChatListState.activeChats.isEmpty
+            filteredChats.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 100.0),
@@ -47,7 +61,9 @@ class _RiderChatState extends State<RiderChat> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "No active chats yet",
+                            _searchQuery.isNotEmpty
+                                ? "No matching chats found"
+                                : "No active chats yet",
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -56,7 +72,9 @@ class _RiderChatState extends State<RiderChat> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            "Tap 'Chat Vendor' or 'Chat Customer' from the Maps page to start chatting.",
+                            _searchQuery.isNotEmpty
+                                ? "Try searching for a different name or order number."
+                                : "Tap 'Chat Vendor' or 'Chat Customer' from the Maps page to start chatting.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
@@ -74,7 +92,7 @@ class _RiderChatState extends State<RiderChat> {
                       children: [
                         ChatSectionCard(
                           title: "TODAY",
-                          children: ChatListState.activeChats.map((chat) {
+                          children: filteredChats.map((chat) {
                             return ChatTileItem(
                               icon: chat.icon,
                               initials: chat.icon == null ? chat.initials : null,

@@ -73,25 +73,30 @@ class CustomerProximityBeaconBanner extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ThemesColors.darkCharcoal.withValues(
-                              alpha: 0.08,
+                        // Flexible container prevents right-edge overflow on long location labels
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            residenceLabel.toUpperCase(),
-                            style: TextStyle(
+                            decoration: BoxDecoration(
                               color: ThemesColors.darkCharcoal.withValues(
-                                alpha: 0.75,
+                                alpha: 0.08,
                               ),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              residenceLabel.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: ThemesColors.darkCharcoal.withValues(
+                                  alpha: 0.75,
+                                ),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/services/firebase/saveProfile.dart';
 import 'package:flutter/material.dart';
@@ -23,8 +24,10 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _vehicleController = TextEditingController();
 
-  File? _profileImage;
+  File? _profileImageFile;
+  String? _profileImageUrl;
   bool _isLoadingData = true;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -32,7 +35,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
     _loadUserProfileFromFirestore();
   }
 
-  /// Fetches the current user's profile from Firestore and populates text fields
+  /// Fetches the current user's profile from Firestore and populates text fields & image
   Future<void> _loadUserProfileFromFirestore() async {
     final String? uid = UserSession.currentUid;
     if (uid != null) {
@@ -47,6 +50,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
             _emailController.text = data['email'] ?? '';
             _phoneController.text = data['phone'] ?? '';
             _vehicleController.text = data['carPlate'] ?? data['vehicle'] ?? '';
+            _profileImageUrl = data['profileImageUrl'] ?? data['photoUrl'];
           });
         }
       } catch (e) {
@@ -100,20 +104,6 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                   _pickImage(ImageSource.gallery);
                 },
               ),
-              if (_profileImage != null)
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _profileImage = null;
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profile photo removed')),
-                    );
-                  },
-                ),
             ],
           ),
         );
@@ -125,18 +115,15 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
-        imageQuality: 80,
+        imageQuality: 70,
+        maxWidth: 800,
+        maxHeight: 800,
       );
 
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         setState(() {
-          _profileImage = File(pickedFile.path);
+          _profileImageFile = File(pickedFile.path);
         });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile photo updated successfully!')),
-          );
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -147,15 +134,89 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
     }
   }
 
+  Future<void> _saveProfileChanges() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    final String? uid = UserSession.currentUid;
+
+    try {
+      String? uploadedUrl = _profileImageUrl;
+
+      // 1. Upload profile image ONLY if a new photo was selected (_profileImageFile != null)
+      if (_profileImageFile != null && uid != null) {
+        try {
+          // Fixed path per user (profile_images/uid.jpg) overwrites old photo instead of duplicating!
+          final String refPath = 'profile_images/$uid.jpg';
+          final Reference storageRef =
+              FirebaseStorage.instance.ref().child(refPath);
+          final UploadTask uploadTask = storageRef.putFile(_profileImageFile!);
+          final TaskSnapshot snapshot = await uploadTask;
+          uploadedUrl = await snapshot.ref.getDownloadURL();
+        } catch (_) {}
+      }
+
+      // 2. Save profile text fields to Firestore
+      await saveProfile_FireStore(
+        _nameController.text.trim(),
+        _emailController.text.trim(),
+        _phoneController.text.trim(),
+        _vehicleController.text.trim(),
+      );
+
+      if (uid != null && uploadedUrl != null) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'profileImageUrl': uploadedUrl,
+        }, SetOptions(merge: true));
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: ThemesColors.success,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  ImageProvider _getAvatarImage() {
+    if (_profileImageFile != null) {
+      return FileImage(_profileImageFile!);
+    }
+    if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) {
+      return NetworkImage(_profileImageUrl!);
+    }
+    return const AssetImage('lib/assets/images/Easy2Eat_Logo.jpg');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const RiderSubAppBar(title: "Profile Details"),
       body: _isLoadingData
           ? const Center(
-              child: CircularProgressIndicator(
-                color: ThemesColors.brandOrange,
-              ),
+              child: CircularProgressIndicator(color: ThemesColors.brandOrange),
             )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -171,9 +232,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                           CircleAvatar(
                             radius: 50,
                             backgroundColor: Colors.grey.shade300,
-                            backgroundImage: _profileImage != null
-                                ? FileImage(_profileImage!) as ImageProvider
-                                : const AssetImage('lib/assets/images/Easy2Eat_Logo.jpg'),
+                            backgroundImage: _getAvatarImage(),
                           ),
                           Positioned(
                             bottom: 0,
@@ -271,29 +330,23 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: () {
-                          // Validate form before saving
-                          if (_formKey.currentState!.validate()) {
-                            // Save profile data strings to Firestore
-                            saveProfile_FireStore(
-                              _nameController.text.trim(),
-                              _emailController.text.trim(),
-                              _phoneController.text.trim(),
-                              _vehicleController.text.trim(),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Profile updated successfully!')),
-                            );
-                            Navigator.pop(context);
-                          }
-                        },
-                        child: const Text(
-                          "Save Changes",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        onPressed: _isSaving ? null : _saveProfileChanges,
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                "Save Changes",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                   ],

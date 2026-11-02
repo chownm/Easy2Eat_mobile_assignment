@@ -6,6 +6,7 @@ import '../../../../core/constants/user_session.dart';
 import '../../../../core/routing/RiderRouting.dart';
 import '../../../../core/theme/theme.dart';
 import 'models/delivery_order_model.dart';
+import 'widgets/delivery_proof_options_sheet.dart';
 import 'widgets/empty_orders_view.dart';
 import 'widgets/order_card_item.dart';
 
@@ -152,33 +153,30 @@ class OrderDetailState extends State<OrderDetail> {
 
   void _showArrivedConfirmationDialog(
       BuildContext context, String deliveryId, DeliveryOrderData order) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: const Text("Confirm Arrival"),
-          content: Text("Have you arrived at the delivery location for $deliveryId?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("No", style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: ThemesColors.success),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await _completeDeliveryAndNotify(deliveryId, order);
-              },
-              child: const Text("Yes", style: TextStyle(color: Colors.white)),
-            ),
-          ],
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: DeliveryProofOptionsSheet(
+            deliveryId: deliveryId,
+            onConfirmed: (proofUrl) async {
+              await _completeDeliveryWithProof(deliveryId, order, proofUrl);
+            },
+          ),
         );
       },
     );
   }
 
-  Future<void> _completeDeliveryAndNotify(
-      String deliveryId, DeliveryOrderData order) async {
+  Future<void> _completeDeliveryWithProof(
+      String deliveryId, DeliveryOrderData order, String proofUrl) async {
     setState(() {
       _loadingOrderIds.add(deliveryId);
     });
@@ -186,15 +184,17 @@ class OrderDetailState extends State<OrderDetail> {
     try {
       final uid = UserSession.currentUid ?? 'guest_rider';
       final now = TimeOfDay.now();
-      final currentTime = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      final currentTime =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
 
-      // 1. Update order status to delivered in Firestore
+      // 1. Update order status and proofUrl in Firestore
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(deliveryId)
           .set({
         'status': 'delivered',
         'isDelivered': true,
+        'proofUrl': proofUrl,
         'deliveredAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -209,6 +209,7 @@ class OrderDetailState extends State<OrderDetail> {
         'senderRole': 'rider',
         'senderUid': uid,
         'time': currentTime,
+        'proofUrl': proofUrl,
         'timestamp': FieldValue.serverTimestamp(),
       });
 
@@ -231,7 +232,7 @@ class OrderDetailState extends State<OrderDetail> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Delivery completed! "Food is Delivered" sent to customer.'),
+            content: Text('Delivery proof uploaded! "Food is Delivered" sent to customer.'),
             backgroundColor: ThemesColors.success,
           ),
         );

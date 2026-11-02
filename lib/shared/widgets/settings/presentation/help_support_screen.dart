@@ -66,7 +66,7 @@ class HelpSupportPage extends StatelessWidget {
         {
           "title": "How is my 10% rider earning calculated?",
           "content":
-              "Rider earnings are automatically calculated as 10% of the total food order price. Earnings update in your Earning Wallet on the Dashboard immediately upon completing a delivery."
+              "Rider earnings are calculated as 10% of the total food order price plus the delivery fee. Earnings update in your Earning Wallet on the Dashboard immediately upon completing a delivery."
         },
         {
           "title": "What if the customer is not answering the chat?",

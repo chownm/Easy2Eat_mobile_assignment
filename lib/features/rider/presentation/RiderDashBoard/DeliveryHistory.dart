@@ -39,10 +39,10 @@ class DeliveryHistory extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: Colors.grey.shade200,
             shape: BoxShape.circle,
@@ -50,28 +50,34 @@ class DeliveryHistory extends StatelessWidget {
           child: const Icon(
             Icons.check_circle_outline_rounded,
             color: ThemesColors.darkCharcoal,
-            size: 22,
+            size: 20,
           ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Line 1: Order Code & Time
+            // Line 1: Order Code & Time (Wrapped in Expanded/Flexible to prevent 56px overflow)
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  orderCode,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: ThemesColors.darkCharcoal,
+                Expanded(
+                  child: Text(
+                    orderCode,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: ThemesColors.darkCharcoal,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   time,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Colors.grey.shade600,
                     fontWeight: FontWeight.w500,
                   ),
@@ -89,17 +95,17 @@ class DeliveryHistory extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF1E3A8A),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   earning,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: ThemesColors.darkCharcoal,
                   ),
@@ -108,7 +114,7 @@ class DeliveryHistory extends StatelessWidget {
             ),
           ],
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
       ),
     );
   }
@@ -170,12 +176,15 @@ class DeliveryHistoryListState extends State<DeliveryHistoryList> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    tripData['deliveryId'] ?? 'Delivery #0001',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: ThemesColors.darkCharcoal,
+                  Expanded(
+                    child: Text(
+                      tripData['deliveryId'] ?? 'Delivery #0001',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: ThemesColors.darkCharcoal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
@@ -190,7 +199,13 @@ class DeliveryHistoryListState extends State<DeliveryHistoryList> {
                 children: [
                   const Icon(Icons.storefront, size: 18, color: ThemesColors.darkCharcoal),
                   const SizedBox(width: 8),
-                  Text("Pickup: Kuala Lumpur", style: TextStyle(color: Colors.grey[700])),
+                  Expanded(
+                    child: Text(
+                      "Pickup: Kuala Lumpur",
+                      style: TextStyle(color: Colors.grey[700]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -198,7 +213,14 @@ class DeliveryHistoryListState extends State<DeliveryHistoryList> {
                 children: [
                   const Icon(Icons.location_on_outlined, size: 18, color: ThemesColors.darkCharcoal),
                   const SizedBox(width: 8),
-                  Text("Drop Off: ${tripData['destination'] ?? 'Jalan Tun'}", style: TextStyle(color: Colors.grey[700])),
+                  Expanded(
+                    child: Text(
+                      "Drop Off: ${tripData['destination'] ?? 'Jalan Tun'}",
+                      style: TextStyle(color: Colors.grey[700]),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),

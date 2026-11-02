@@ -24,14 +24,14 @@ enum OrderTrackingStage {
   onTheWay(
     stepNumber: 4,
     headerTitle: 'On the Way',
-    pipelineTitle: '4. On the Way',
-    defaultStatusText: 'Courier collected order and is en route via direct corridor.',
+    pipelineTitle: '4. Out for Delivery',
+    defaultStatusText: 'Rider picked up order and is navigating to your location.',
   ),
   delivered(
     stepNumber: 5,
     headerTitle: 'Delivered',
     pipelineTitle: '5. Delivered',
-    defaultStatusText: 'Order delivered safely to Gate Pillar 2 drop table. Photo logged.',
+    defaultStatusText: 'Order delivered and handed safely to customer.',
   );
 
   final int stepNumber;
@@ -89,9 +89,23 @@ class CorridorRouteModel {
       isDirectUnstacked: isDirectUnstacked ?? this.isDirectUnstacked,
     );
   }
+
+  factory CorridorRouteModel.fromMap(Map<String, dynamic> data) {
+    final String fullDrop = (data['deliveryAddress'] ?? data['dropOffLocation'] ?? '').toString().replaceAll('Drop Off: ', '');
+
+    return CorridorRouteModel(
+      merchantName: data['vendorName'] ?? data['merchantName'] ?? 'Campus Merchant',
+      merchantHub: (data['location'] ?? data['pickupLocation'] ?? 'Merchant Hub').toString().replaceAll('Pickup: ', ''),
+      dropOffLandmark: fullDrop.isNotEmpty ? fullDrop : OrderTrackingModel.defaultSubPinLandmark,
+      destinationHub: data['destinationHub'] ?? 'Cheras Traders Square',
+      distanceKm: (data['distanceKm'] as num?)?.toDouble() ?? 0.6,
+      etaMinutes: (data['etaMinutes'] as num?)?.toInt() ?? 8,
+      isDirectUnstacked: data['isDirectUnstacked'] ?? true,
+    );
+  }
 }
 
-/// Assigned Courier Profile & Vehicle Telemetry.
+/// Assigned Courier Profile & Vehicle Telemetry (Parsed from live Rider state)
 @immutable
 class CourierProfileModel {
   final String name;
@@ -109,9 +123,36 @@ class CourierProfileModel {
   });
 
   String get displayNameWithPlate => '$name ($plateNumber)';
+
+  CourierProfileModel copyWith({
+    String? name,
+    String? plateNumber,
+    String? vehicleType,
+    String? phoneNumber,
+    String? hubAffiliation,
+  }) {
+    return CourierProfileModel(
+      name: name ?? this.name,
+      plateNumber: plateNumber ?? this.plateNumber,
+      vehicleType: vehicleType ?? this.vehicleType,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      hubAffiliation: hubAffiliation ?? this.hubAffiliation,
+    );
+  }
+
+  factory CourierProfileModel.fromMap(Map<String, dynamic> data) {
+    final bool hasRider = data['assignedRiderId'] != null || data['riderName'] != null;
+    return CourierProfileModel(
+      name: data['riderName'] ?? (hasRider ? 'Assigned Rider' : 'Assigning Courier...'),
+      plateNumber: data['riderPlate'] ?? (hasRider ? 'Verified Fleet' : 'Pending'),
+      vehicleType: data['riderVehicle'] ?? 'Motorcycle',
+      phoneNumber: data['riderPhone'] ?? '',
+      hubAffiliation: data['hubAffiliation'] ?? 'Hyper-Local Express Fleet',
+    );
+  }
 }
 
-/// Drop-Off Proof-of-Delivery Record (Synchronized with Rider r_05 Wireframe).
+/// Drop-Off Proof-of-Delivery Record
 @immutable
 class DropOffProofModel {
   final String fileName;
@@ -121,7 +162,7 @@ class DropOffProofModel {
   final String subPinLandmark;
   final String courierHandoffName;
   final String resolutionStatus;
-  final String? localImageAsset;
+  final String? cloudPhotoUrl;
 
   const DropOffProofModel({
     required this.fileName,
@@ -131,8 +172,23 @@ class DropOffProofModel {
     required this.subPinLandmark,
     required this.courierHandoffName,
     required this.resolutionStatus,
-    this.localImageAsset,
+    this.cloudPhotoUrl,
   });
+
+  factory DropOffProofModel.fromMap(Map<String, dynamic> data) {
+    return DropOffProofModel(
+      fileName: '${data['orderID'] ?? 'order'}_proof.jpg',
+      caption: data['proofCaption'] ?? 'Drop-off verified at designated gate table',
+      timestampFormatted: (data['deliveredAt'] is Timestamp)
+          ? (data['deliveredAt'] as Timestamp).toDate().toString().split('.').first
+          : 'Verified at drop-off',
+      gpsAccuracyTag: 'GPS Verified <5m',
+      subPinLandmark: data['deliveryAddress'] ?? OrderTrackingModel.defaultSubPinLandmark,
+      courierHandoffName: data['riderName'] ?? 'Assigned Courier',
+      resolutionStatus: 'Direct Unstacked Delivered',
+      cloudPhotoUrl: data['proofUrl'] ?? data['proofPhotoUrl'] ?? data['dropOffProofPhotoUrl'],
+    );
+  }
 }
 
 /// Individual item in the 5-stage vertical pipeline stepper.
@@ -151,7 +207,7 @@ class TrackingMilestoneModel {
   });
 }
 
-/// Master Entity representing live tracking state for Tab 2.
+/// Master Entity representing live tracking state for Tab 2
 @immutable
 class OrderTrackingModel {
   static bool isProximityBeaconEnabled = true;
@@ -159,15 +215,6 @@ class OrderTrackingModel {
 
   final String orderId;
   final OrderTrackingStage currentStage;
-  final String customerName;
-  final String customerPhone;
-  final double totalPrice;
-  final String location;
-  final String? assignedRiderId;
-  final String? riderName;
-  final String? riderPhone;
-  final bool isPickedUp;
-
   final String etaTimeDisplay;
   final int etaMinutesRemaining;
   final String etaBadgeLabel;
@@ -175,96 +222,24 @@ class OrderTrackingModel {
   final bool is100mBeaconActive;
   final String residenceLabel;
   final CorridorRouteModel corridor;
-  final DropOffProofModel dropOffProof;
+  final CourierProfileModel courier;
+  final DropOffProofModel? dropOffProof;
   final List<TrackingMilestoneModel> milestones;
 
   const OrderTrackingModel({
     required this.orderId,
     required this.currentStage,
-    required this.customerName,
-    required this.customerPhone,
-    required this.totalPrice,
-    required this.location,
-    this.assignedRiderId,
-    this.riderName,
-    this.riderPhone,
-    required this.isPickedUp,
-    this.etaTimeDisplay = '',
-    this.etaMinutesRemaining = 0,
-    this.etaBadgeLabel = '',
-    this.stageDescription = '',
-    this.is100mBeaconActive = false,
-    this.residenceLabel = 'Landed Villa',
-    this.corridor = defaultCorridor,
-    this.dropOffProof = defaultProof,
-    this.milestones = standardMilestones,
+    required this.etaTimeDisplay,
+    required this.etaMinutesRemaining,
+    required this.etaBadgeLabel,
+    required this.stageDescription,
+    required this.is100mBeaconActive,
+    required this.residenceLabel,
+    required this.corridor,
+    required this.courier,
+    this.dropOffProof,
+    required this.milestones,
   });
-
-  CourierProfileModel get courier => CourierProfileModel(
-    name: riderName ?? 'Searching for nearby rider...',
-    plateNumber: riderName != null ? 'BQK 4812' : 'Pending',
-    vehicleType: 'Motorcycle',
-    phoneNumber: riderPhone ?? '',
-    hubAffiliation: assignedRiderId != null ? 'Active Courier' : 'Unassigned',
-  );
-
-  /// Master parser reading the exact shared schema from Vendor & Rider
-  factory OrderTrackingModel.fromFirestore(DocumentSnapshot doc) {
-    final Map<String, dynamic> data =
-        doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
-
-    final String rawStatus =
-    (data['status'] ?? data['stage'] ?? 'confirmed').toString().trim().toLowerCase();
-
-    OrderTrackingStage parsedStage;
-    switch (rawStatus) {
-      case 'preparing':
-        parsedStage = OrderTrackingStage.preparing;
-        break;
-      case 'readyforpickup':
-      case 'ready_for_pickup':
-        parsedStage = OrderTrackingStage.readyForPickup;
-        break;
-      case 'ontheway':
-      case 'on_the_way':
-      case 'almostdone':
-        parsedStage = OrderTrackingStage.onTheWay;
-        break;
-      case 'delivered':
-      case 'done':
-        parsedStage = OrderTrackingStage.delivered;
-        break;
-      case 'pending':
-      case 'confirmed':
-      default:
-        parsedStage = OrderTrackingStage.confirmed;
-    }
-
-    // Dynamic corridor from actual order locations
-    final pickup = data['location'] ?? data['pickupLocation'] ?? 'APU Campus Cafeteria';
-    final dropOff = data['deliveryAddress'] ?? data['dropOffLocation'] ?? OrderTrackingModel.defaultSubPinLandmark;
-
-    final dynamicCorridor = OrderTrackingModel.defaultCorridor.copyWith(
-      merchantName: data['vendorName']?.toString().isNotEmpty == true ? data['vendorName'] : 'Campus Cafeteria',
-      merchantHub: pickup.toString().replaceAll('Pickup: ', ''),
-      dropOffLandmark: dropOff.toString().replaceAll('Drop Off: ', ''),
-    );
-
-    return OrderTrackingModel(
-      orderId: data['orderID'] ?? data['orderId'] ?? data['deliveryId'] ?? doc.id,
-      currentStage: parsedStage,
-      customerName: data['customerName'] ?? '',
-      customerPhone: data['customerPhone'] ?? '',
-      totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0.0,
-      location: dropOff,
-      assignedRiderId: data['assignedRiderId'],
-      riderName: data['riderName'],
-      riderPhone: data['riderPhone'],
-      isPickedUp: data['isPickedUp'] ?? false,
-      etaMinutesRemaining: (data['minutesRemaining'] as num?)?.toInt() ?? 0,
-      corridor: dynamicCorridor,
-    );
-  }
 
   OrderTrackingModel copyWith({
     String? orderId,
@@ -274,99 +249,147 @@ class OrderTrackingModel {
     String? etaBadgeLabel,
     String? stageDescription,
     bool? is100mBeaconActive,
+    String? residenceLabel,
     CorridorRouteModel? corridor,
+    CourierProfileModel? courier,
+    DropOffProofModel? dropOffProof,
+    List<TrackingMilestoneModel>? milestones,
   }) {
     return OrderTrackingModel(
       orderId: orderId ?? this.orderId,
       currentStage: currentStage ?? this.currentStage,
-      customerName: customerName,
-      customerPhone: customerPhone,
-      totalPrice: totalPrice,
-      location: location,
-      assignedRiderId: assignedRiderId,
-      riderName: riderName,
-      riderPhone: riderPhone,
-      isPickedUp: isPickedUp,
       etaTimeDisplay: etaTimeDisplay ?? this.etaTimeDisplay,
       etaMinutesRemaining: etaMinutesRemaining ?? this.etaMinutesRemaining,
       etaBadgeLabel: etaBadgeLabel ?? this.etaBadgeLabel,
       stageDescription: stageDescription ?? this.stageDescription,
       is100mBeaconActive: is100mBeaconActive ?? this.is100mBeaconActive,
-      residenceLabel: residenceLabel,
+      residenceLabel: residenceLabel ?? this.residenceLabel,
       corridor: corridor ?? this.corridor,
-      dropOffProof: dropOffProof,
-      milestones: milestones,
+      courier: courier ?? this.courier,
+      dropOffProof: dropOffProof ?? this.dropOffProof,
+      milestones: milestones ?? this.milestones,
     );
   }
 
-  // STATIC PRESET FIXTURES (For UI renders and viva demonstration)
+  /// Initial live shell while Firestore document streams in (NO MOCK STRINGS)
+  factory OrderTrackingModel.initial(String orderId) {
+    return OrderTrackingModel(
+      orderId: orderId,
+      currentStage: OrderTrackingStage.confirmed,
+      etaTimeDisplay: '--:--',
+      etaMinutesRemaining: 15,
+      etaBadgeLabel: 'Connecting...',
+      stageDescription: 'Connecting to live kitchen pipeline...',
+      is100mBeaconActive: false,
+      residenceLabel: 'Delivery Destination',
+      corridor: CorridorRouteModel(
+        merchantName: 'Loading merchant...',
+        merchantHub: 'Campus Hub',
+        dropOffLandmark: defaultSubPinLandmark,
+        destinationHub: 'Campus Area',
+        distanceKm: 0.6,
+        etaMinutes: 8,
+      ),
+      courier: const CourierProfileModel(
+        name: 'Searching for nearby courier...',
+        plateNumber: 'Pending',
+        vehicleType: 'Motorcycle',
+        phoneNumber: '',
+        hubAffiliation: 'Campus Fleet',
+      ),
+      milestones: _buildLiveMilestones(OrderTrackingStage.confirmed, defaultSubPinLandmark),
+    );
+  }
 
-  static const CorridorRouteModel defaultCorridor = CorridorRouteModel(
-    merchantName: 'Bai Wei Mini Bowl',
-    merchantHub: 'C180 Commercial Hub',
-    dropOffLandmark: 'Gate Pillar 2 (Table)',
-    destinationHub: 'Traders Square',
-    distanceKm: 0.6,
-    etaMinutes: 7,
-    isDirectUnstacked: true,
-  );
+  /// Deserializes pure Firestore DocumentSnapshot directly
+  factory OrderTrackingModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final String rawStatus = (data['status'] ?? data['stage'] ?? 'confirmed').toString().trim().toLowerCase();
 
-  static const DropOffProofModel defaultProof = DropOffProofModel(
-    fileName: 'gate_pillar_2_drop_verified.jpg',
-    caption: 'Bag placed cleanly on guardhouse pillar drop table',
-    timestampFormatted: '2026-10-27 12:44:18 MYT',
-    gpsAccuracyTag: 'GPS Verified <5m',
-    subPinLandmark: 'Cheras Traders Sq • Block B Gate',
-    courierHandoffName: 'Muhammad Harith (BQK 4812)',
-    resolutionStatus: 'Direct Unstacked Delivered',
-  );
+    OrderTrackingStage stage = OrderTrackingStage.confirmed;
+    switch (rawStatus) {
+      case 'preparing':
+        stage = OrderTrackingStage.preparing;
+        break;
+      case 'readyforpickup':
+      case 'ready_for_pickup':
+        stage = OrderTrackingStage.readyForPickup;
+        break;
+      case 'ontheway':
+      case 'on_the_way':
+      case 'almostdone':
+        stage = OrderTrackingStage.onTheWay;
+        break;
+      case 'delivered':
+      case 'done':
+        stage = OrderTrackingStage.delivered;
+        break;
+      case 'confirmed':
+      default:
+        stage = OrderTrackingStage.confirmed;
+    }
 
-  static const List<TrackingMilestoneModel> standardMilestones = <TrackingMilestoneModel>[
-    TrackingMilestoneModel(
-      stageIndex: 1,
-      title: '1. Order Confirmed',
-      subtitle: 'Paid & logged. Kitchen queued ticket.',
-      completedTimestamp: '12:30 PM',
-    ),
-    TrackingMilestoneModel(
-      stageIndex: 2,
-      title: '2. Kitchen Preparing',
-      subtitle: 'Vendor received order and is actively cooking.',
-    ),
-    TrackingMilestoneModel(
-      stageIndex: 3,
-      title: '3. Ready for Pickup',
-      subtitle: 'Food packed & ready at counter. Waiting for rider pickup.',
-    ),
-    TrackingMilestoneModel(
-      stageIndex: 4,
-      title: '4. On the Way',
-      subtitle: 'Courier collected order and is en route via corridor.',
-    ),
-    TrackingMilestoneModel(
-      stageIndex: 5,
-      title: '5. Delivered',
-      subtitle: 'Verified with GPS drop-off photo proof at Gate Pillar 2.',
-    ),
-  ];
+    final bool isDelivered = stage == OrderTrackingStage.delivered;
+    final bool isPaused = data['isPaused'] ?? (stage == OrderTrackingStage.readyForPickup);
+    final String pauseReason = data['pauseReason'] ?? '';
+    final int minutes = (data['minutesRemaining'] as num?)?.toInt() ?? (isDelivered ? 0 : 8);
 
-  static const OrderTrackingModel mockStage1 = OrderTrackingModel(
-    orderId: 'ORD-06095386',
-    currentStage: OrderTrackingStage.confirmed,
-    customerName: 'Joel Ira',
-    customerPhone: '+60 12-892 4118',
-    totalPrice: 19.80,
-    location: 'Gate Pillar 2 (Table)',
-    isPickedUp: false,
-    etaTimeDisplay: '14 mins',
-    etaMinutesRemaining: 14,
-    etaBadgeLabel: 'Order Logged',
-    stageDescription: 'Order received. Kitchen has queued your ticket for prep.',
-  );
+    final corridor = CorridorRouteModel.fromMap(data);
+    final courier = CourierProfileModel.fromMap(data);
+    final proof = (data['proofUrl'] != null || data['proofPhotoUrl'] != null || data['dropOffProofPhotoUrl'] != null)
+        ? DropOffProofModel.fromMap(data)
+        : null;
+
+    return OrderTrackingModel(
+      orderId: (data['orderID'] ?? data['orderId'] ?? doc.id).toString(),
+      currentStage: stage,
+      etaTimeDisplay: isDelivered ? 'Delivered' : '$minutes mins',
+      etaMinutesRemaining: minutes,
+      etaBadgeLabel: isDelivered
+          ? 'Delivered'
+          : (isPaused ? (pauseReason.isNotEmpty ? 'PAUSED • $pauseReason' : 'PAUSED') : 'On Schedule'),
+      stageDescription: data['statusDescription'] ?? stage.defaultStatusText,
+      is100mBeaconActive: stage == OrderTrackingStage.onTheWay && minutes <= 2,
+      residenceLabel: data['deliveryAddress'] ?? 'Campus Residence',
+      corridor: corridor,
+      courier: courier,
+      dropOffProof: proof,
+      milestones: _buildLiveMilestones(stage, corridor.dropOffLandmark),
+    );
+  }
+
+  static List<TrackingMilestoneModel> _buildLiveMilestones(OrderTrackingStage currentStage, String landmark) {
+    return [
+      const TrackingMilestoneModel(
+        stageIndex: 1,
+        title: '1. Order Confirmed',
+        subtitle: 'Merchant acknowledged receipt and queued ticket.',
+      ),
+      const TrackingMilestoneModel(
+        stageIndex: 2,
+        title: '2. Live Kitchen Preparing',
+        subtitle: 'Dishes cooking; portion counters updated.',
+      ),
+      const TrackingMilestoneModel(
+        stageIndex: 3,
+        title: '3. Ready at Counter',
+        subtitle: 'Food packed. Awaiting assigned rider collection.',
+      ),
+      const TrackingMilestoneModel(
+        stageIndex: 4,
+        title: '4. Out for Delivery',
+        subtitle: 'Courier collected order and is en route via direct corridor.',
+      ),
+      TrackingMilestoneModel(
+        stageIndex: 5,
+        title: '5. Delivered',
+        subtitle: 'Verified with GPS drop-off photo proof at $landmark.',
+      ),
+    ];
+  }
 }
 
-// 3. ETA CALCULATOR
-
+/// Minute-based ETA Calculator
 class EtaCalculator {
   static int calculateTransitMinutes(double distanceKm) {
     const double minutesPerKm = 3.0;

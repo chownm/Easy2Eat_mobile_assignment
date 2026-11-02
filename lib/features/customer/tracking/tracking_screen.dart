@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:easy2eat/core/constants/user_session.dart';
 import 'package:easy2eat/core/theme/theme.dart';
+import 'package:easy2eat/features/customer/customer_shell_screen.dart';
 import 'package:easy2eat/features/customer/models/order_tracking_model.dart';
 import 'package:easy2eat/features/customer/tracking/widgets/courier_contact_card.dart';
 import 'package:easy2eat/features/customer/tracking/widgets/estimated_arrival_hero_card.dart';
@@ -11,13 +15,17 @@ import 'package:easy2eat/shared/widgets/shared_customer_top_bar.dart';
 import 'package:easy2eat/services/maps/map_api_service.dart';
 import 'package:easy2eat/shared/widgets/ChatWindow/ui.dart';
 import 'package:easy2eat/services/orders/order_sync_service.dart';
+import 'package:easy2eat/services/notification/notification_service.dart';
+
 
 class CustomerTrackingScreen extends StatefulWidget {
-  final String orderId;
+  final String? orderId; // Optional: Can be null when opened from Bottom Nav Bar
+  final bool showBackButton;
 
   const CustomerTrackingScreen({
     super.key,
-    required this.orderId,
+    this.orderId,
+    this.showBackButton = false,
   });
 
   @override
@@ -25,20 +33,28 @@ class CustomerTrackingScreen extends StatefulWidget {
 }
 
 class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
-  // 3. Initialize dynamically later
-  late OrderTrackingModel _order;
+  OrderTrackingModel? _order;
+  bool _isLoading = true;
+  String? _resolvedOrderId;
+  // Track order ID to prevent spamming notifications on every stream pulse
+  String? _lastNotified100mOrderId;
 
-  // Minute-based simulation states
+  // Multi-order list for active orders switcher
+  List _activeOrders = [];
+  List _allCustomerOrders = [];
+
   bool _isPaused = false;
   String _pauseReason = '';
+  String? _assignedRiderId;
+  String? _proofPhotoUrl;
   Timer? _minuteTicker;
   StreamSubscription? _orderSub;
+  StreamSubscription? _userOrdersSub;
 
   final DraggableScrollableController _sheetController = DraggableScrollableController();
   static const double _minSheetExtent = 0.20;
   static const double _maxSheetExtent = 0.56;
 
-  /// Formats the arrival clock time: e.g., DateTime.now() + 8 mins -> "12:48 PM"
   String _calculateEtaClockTime(int minutesRemaining) {
     final targetTime = DateTime.now().add(Duration(minutes: minutesRemaining));
     final int hour = targetTime.hour % 12 == 0 ? 12 : targetTime.hour % 12;
@@ -47,7 +63,6 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
     return '$hour:$minute $period';
   }
 
-  /// Current time for delivery receipt: e.g. "12:44 PM"
   String _getCurrentClockTime() {
     final now = DateTime.now();
     final int hour = now.hour % 12 == 0 ? 12 : now.hour % 12;
@@ -60,118 +75,206 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
   void initState() {
     super.initState();
     _sheetController.addListener(() => setState(() {}));
-
-    // Start at Stage 1 using the newly created Order ID
-    _order = OrderTrackingModel.mockStage1.copyWith(
-      orderId: widget.orderId,
-    );
-
-    final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
-    final totalMins = 5 + transitMins;
-
-    _order = _order.copyWith(
-      etaMinutesRemaining: totalMins,
-      etaTimeDisplay: _calculateEtaClockTime(totalMins),
-      etaBadgeLabel: 'Order Logged',
-    );
-
-    _startMinuteTicker();
-    _listenToCloudOrders();
+    _initOrdersTrackingStream();
   }
 
+  @override
+  void didUpdateWidget(covariant CustomerTrackingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.orderId != widget.orderId) {
+      if (widget.orderId != null && widget.orderId!.trim().isNotEmpty) {
+        _switchOrder(widget.orderId!.trim());
+      } else {
+        _initOrdersTrackingStream();
+      }
+    }
+  }
   @override
   void dispose() {
     _minuteTicker?.cancel();
     _orderSub?.cancel();
+    _userOrdersSub?.cancel();
     _sheetController.dispose();
     super.dispose();
   }
 
-  /// 1. MINUTE TICKER: Decrements 1 minute periodically when NOT paused
+  /// REAL-TIME ORDERS STREAM: Sorts Active from Delivered
+  void _initOrdersTrackingStream() {
+    final String? currentUid =
+        FirebaseAuth.instance.currentUser?.uid ?? UserSession.currentUid;
+
+    if (currentUid == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    _userOrdersSub?.cancel();
+    _userOrdersSub = FirebaseFirestore.instance
+        .collection('orders')
+        .where('customerID', isEqualTo: currentUid)
+        .snapshots()
+        .listen((querySnap) {
+      final docs = querySnap.docs;
+
+      final allList = [];
+      final activeList = [];
+
+      for (final doc in docs) {
+      final data = doc.data();
+      data['docId'] = doc.id;
+      final rawStatus = (data['status'] ?? data['stage'] ?? '').toString().trim().toLowerCase();
+      final bool isDelivered = data['isDelivered'] == true ||
+      rawStatus == 'delivered' ||
+      rawStatus == 'done';
+
+      allList.add(data);
+      if (!isDelivered) {
+      activeList.add(data);
+      }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+      _allCustomerOrders = allList;
+      _activeOrders = activeList;
+      });
+
+      // Priority 1: Explicit order ID from constructor
+      if (widget.orderId != null && widget.orderId!.trim().isNotEmpty && _resolvedOrderId == null) {
+      _switchOrder(widget.orderId!.trim());
+      return;
+      }
+
+      // Priority 2: If currently viewing an order that is still active, stay on it
+      if (_resolvedOrderId != null &&
+      _activeOrders.any((o) => (o['orderID'] ?? o['orderId'] ?? o['docId']) == _resolvedOrderId)) {
+      return;
+      }
+
+      // Priority 3: Auto-switch to the newest ACTIVE order if available
+      if (_activeOrders.isNotEmpty) {
+      final latest = _activeOrders.last;
+      final targetId = (latest['orderID'] ?? latest['orderId'] ?? latest['docId']).toString();
+      _switchOrder(targetId);
+      } else {
+      // If NO active orders exist, and user hasn't explicitly chosen to inspect a historical order
+      if (_resolvedOrderId == null) {
+      setState(() {
+      _order = null;
+      _isLoading = false;
+      });
+      }
+      }
+    });
+  }
+
+  /// Switch the screen to track any order ID
+  void _switchOrder(String orderId) {
+    if (_resolvedOrderId == orderId && _order != null) return;
+
+    setState(() {
+      _resolvedOrderId = orderId;
+      _isLoading = true;
+      _lastNotified100mOrderId = null;
+    });
+
+    _order = OrderTrackingModel.initial(orderId);
+    _startMinuteTicker();
+    _listenToCloudOrders(orderId);
+  }
+
+  /// Dismiss the completed order from Tab 2
+  void _dismissCurrentOrder() {
+    _orderSub?.cancel();
+    if (_activeOrders.isNotEmpty) {
+      // If there's another active delivery, switch to it
+      final nextOrder = _activeOrders.last;
+      final targetId = (nextOrder['orderID'] ?? nextOrder['orderId'] ?? nextOrder['docId']).toString();
+      _switchOrder(targetId);
+    } else {
+      // Otherwise navigate to Home feed
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CustomerShellScreen(initialIndex: 0),
+        ),
+            (route) => false,
+      );
+    }
+  }
+
   void _startMinuteTicker() {
     _minuteTicker?.cancel();
     _minuteTicker = Timer.periodic(const Duration(seconds: 15), (timer) {
-      if (_isPaused || _order.etaMinutesRemaining <= 0) return;
+      if (_order == null || _isPaused || _order!.etaMinutesRemaining <= 0) return;
 
       setState(() {
-        final newMins = _order.etaMinutesRemaining - 1;
-        final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
-
-        // Pause Point 1: Cooking complete -> Awaiting kitchen to mark ready
-        if (_order.currentStage == OrderTrackingStage.preparing && newMins <= transitMins) {
-          _isPaused = true;
-          _pauseReason = 'Awaiting Kitchen';
-          _order = _order.copyWith(
-            etaMinutesRemaining: newMins,
-            etaTimeDisplay: _calculateEtaClockTime(newMins),
-            is100mBeaconActive: _order.currentStage == OrderTrackingStage.onTheWay && newMins <= 2 && newMins > 0,
-          );
-          return;
-        }
-
-        _order = _order.copyWith(
+        final newMins = _order!.etaMinutesRemaining - 1;
+        _order = _order!.copyWith(
           etaMinutesRemaining: newMins,
           etaTimeDisplay: _calculateEtaClockTime(newMins),
-          is100mBeaconActive: _order.currentStage == OrderTrackingStage.onTheWay && newMins <= 2 && newMins > 0,
+          is100mBeaconActive: _order!.currentStage == OrderTrackingStage.onTheWay &&
+              newMins <= 2 &&
+              newMins > 0,
         );
+
+        _checkAndTrigger100mNotification();
       });
     });
   }
 
-  /// 2. LISTEN TO FIRESTORE: Reflects vendor/rider actions in real time
-  void _listenToCloudOrders() {
-    _orderSub = OrderSyncService.listenToOrder(_order.orderId)?.listen((doc) {
-      if (!doc.exists || doc.data() == null) return;
+  void _checkAndTrigger100mNotification() {
+    if (_order == null) return;
+
+    final bool isBeaconActive = _order!.is100mBeaconActive ||
+        (_order!.currentStage == OrderTrackingStage.onTheWay &&
+            _order!.etaMinutesRemaining <= 2 &&
+            _order!.etaMinutesRemaining > 0);
+
+    if (isBeaconActive &&
+        OrderTrackingModel.isProximityBeaconEnabled &&
+        _lastNotified100mOrderId != _order!.orderId) {
+      _lastNotified100mOrderId = _order!.orderId;
+
+      NotificationService.showLocalNotification(
+        title: '🚨 100m Proximity Alert • #${_order!.orderId}',
+        body: 'Courier is within 100m! Head downstairs to ${_order!.corridor.dropOffLandmark} for pickup.',
+      );
+    }
+  }
+
+  void _listenToCloudOrders(String orderId) {
+    _orderSub?.cancel();
+    _orderSub = OrderSyncService.listenToOrder(orderId)?.listen((doc) {
+      if (!doc.exists || doc.data() == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
       final data = doc.data()! as Map<String, dynamic>;
 
       setState(() {
-        // Standardize reading both status and stage
-        final rawStatus = (data['status'] ?? data['stage'] ?? '').toString().trim();
-        final bool? cloudPaused = data['isPaused'];
-        final String pauseReason = data['pauseReason'] ?? '';
-        final String desc = data['statusDescription'] ?? _order.stageDescription;
-        final int? mins = data['minutesRemaining'];
+        _order = OrderTrackingModel.fromFirestore(doc);
+        _assignedRiderId = data['assignedRiderId'];
+        _isPaused = data['isPaused'] ??
+            (_order!.currentStage == OrderTrackingStage.readyForPickup);
+        _pauseReason = data['pauseReason'] ?? (_isPaused ? 'Awaiting Rider Pickup' : '');
+        _proofPhotoUrl = data['proofUrl'] ?? data['proofPhotoUrl'] ?? data['dropOffProofPhotoUrl'];
 
-        OrderTrackingStage newStage = _order.currentStage;
-        if (rawStatus == 'confirmed') newStage = OrderTrackingStage.confirmed;
-        if (rawStatus == 'preparing') newStage = OrderTrackingStage.preparing;
-        if (rawStatus == 'readyForPickup') newStage = OrderTrackingStage.readyForPickup;
-        if (rawStatus == 'onTheWay' || rawStatus == 'almostDone') newStage = OrderTrackingStage.onTheWay;
-        if (rawStatus == 'delivered' || rawStatus == 'done') newStage = OrderTrackingStage.delivered;
-
-        final bool isOrderDelivered = newStage == OrderTrackingStage.delivered;
-        final int currentMins = mins ?? _order.etaMinutesRemaining;
-        final String clockTime = isOrderDelivered
-            ? _getCurrentClockTime()
-            : _calculateEtaClockTime(currentMins);
-
-        // State Machine Pause Resolution
-        bool resolvedPause = cloudPaused ?? _isPaused;
-        String resolvedReason = pauseReason;
-
-        if (newStage == OrderTrackingStage.readyForPickup) {
-          resolvedPause = true;
-          resolvedReason = pauseReason.isNotEmpty ? pauseReason : 'Awaiting Rider Pickup';
-        } else if (newStage == OrderTrackingStage.onTheWay) {
-          resolvedPause = false;
-          resolvedReason = '';
-        } else if (isOrderDelivered) {
-          resolvedPause = false;
-          resolvedReason = '';
+        if (_order!.currentStage == OrderTrackingStage.delivered) {
+          _order = _order!.copyWith(
+            etaTimeDisplay: _getCurrentClockTime(),
+            etaBadgeLabel: 'Delivered',
+          );
+        } else {
+          _order = _order!.copyWith(
+            etaTimeDisplay: _calculateEtaClockTime(_order!.etaMinutesRemaining),
+            etaBadgeLabel: _isPaused ? 'PAUSED • $_pauseReason' : 'On Schedule',
+          );
         }
+        _isLoading = false;
 
-        _isPaused = resolvedPause;
-        _pauseReason = resolvedReason;
-        _order = _order.copyWith(
-          currentStage: newStage,
-          stageDescription: desc,
-          etaMinutesRemaining: currentMins,
-          etaTimeDisplay: clockTime,
-          etaBadgeLabel: isOrderDelivered
-              ? 'Delivered'
-              : (resolvedPause ? 'PAUSED' : 'On Schedule'),
-          is100mBeaconActive: newStage == OrderTrackingStage.onTheWay && currentMins <= 2,
-        );
+        _checkAndTrigger100mNotification();
       });
     });
   }
@@ -188,77 +291,318 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
     );
   }
 
-  // MULTI-ROLE MILESTONE ACTIONS (VENDOR & RIDER CONFIRMATIONS)
+  /// MODAL: Allows switching between ANY order directly from the tracking tab
+  void _showOrderSwitcherSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ThemesColors.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: ThemesColors.darkCharcoal.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Order to Track',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: ThemesColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${_allCustomerOrders.length} total',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ThemesColors.darkCharcoal.withValues(alpha: 0.6),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.45,
+                ),
+                child: _allCustomerOrders.isEmpty
+                    ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: Text('No orders found.')),
+                )
+                    : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _allCustomerOrders.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final item = _allCustomerOrders[index];
+                    final String id =
+                    (item['orderID'] ?? item['orderId'] ?? item['docId']).toString();
+                    final String status =
+                    (item['status'] ?? item['stage'] ?? 'Active').toString().toUpperCase();
+                    final bool isDelivered = status == 'DELIVERED';
+                    final bool isCurrentlySelected = id == _resolvedOrderId;
 
-  /// ACTION 1: Vendor logs in and confirms "Food Ready & Packed"
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _switchOrder(id);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isCurrentlySelected
+                              ? ThemesColors.brandOrange.withValues(alpha: 0.08)
+                              : ThemesColors.cardBackground,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCurrentlySelected
+                                ? ThemesColors.brandOrange
+                                : ThemesColors.darkCharcoal.withValues(alpha: 0.12),
+                            width: isCurrentlySelected ? 1.6 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isDelivered
+                                  ? Icons.check_circle_rounded
+                                  : Icons.delivery_dining_rounded,
+                              color: isDelivered
+                                  ? ThemesColors.freshGreen
+                                  : ThemesColors.brandOrange,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Order #$id',
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: ThemesColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    item['orderItems'] ?? 'Meal Order',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: ThemesColors.darkCharcoal.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isDelivered
+                                    ? ThemesColors.freshGreen.withValues(alpha: 0.12)
+                                    : ThemesColors.brandOrange.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDelivered
+                                      ? ThemesColors.freshGreen
+                                      : ThemesColors.brandOrange,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void onVendorConfirmReady() {
-    final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
-
-    OrderSyncService.vendorConfirmFoodReady(_order.orderId, transitMins: transitMins);
-
-    setState(() {
-      _isPaused = true;
-      _pauseReason = 'Awaiting Rider Pickup';
-      _order = _order.copyWith(
-        currentStage: OrderTrackingStage.readyForPickup,
-        etaMinutesRemaining: transitMins,
-        etaTimeDisplay: _calculateEtaClockTime(transitMins),
-        etaBadgeLabel: 'PAUSED',
-        stageDescription: 'Food packed! Ready at counter for rider pickup.',
-      );
-    });
+    if (_resolvedOrderId == null || _order == null) return;
+    final transitMins =
+    EtaCalculator.calculateTransitMinutes(_order!.corridor.distanceKm);
+    OrderSyncService.vendorConfirmFoodReady(_resolvedOrderId!,
+        transitMins: transitMins);
   }
 
-  /// ACTION 2: Rider arrives, verifies package & confirms "Picked Up"
   void onRiderConfirmPickup() {
-    final transitMins = EtaCalculator.calculateTransitMinutes(_order.corridor.distanceKm);
-
-    OrderSyncService.riderConfirmPickedUp(_order.orderId, _order.corridor.distanceKm);
-
-    setState(() {
-      _isPaused = false;
-      _pauseReason = '';
-      _order = _order.copyWith(
-        currentStage: OrderTrackingStage.onTheWay,
-        etaMinutesRemaining: transitMins,
-        etaTimeDisplay: _calculateEtaClockTime(transitMins),
-        etaBadgeLabel: 'Rider En Route',
-        stageDescription: 'Courier picked up order! On the way via direct corridor.',
-        is100mBeaconActive: transitMins <= 2,
-      );
-    });
+    if (_resolvedOrderId == null || _order == null) return;
+    OrderSyncService.riderConfirmPickedUp(
+        _resolvedOrderId!, _order!.corridor.distanceKm);
   }
 
-  /// ACTION 3: Rider delivers at Gate Pillar 2 drop table
   void onRiderConfirmDelivered() {
-    OrderSyncService.riderConfirmDelivered(_order.orderId);
-
-    setState(() {
-      _isPaused = false;
-      _pauseReason = '';
-      _minuteTicker?.cancel();
-
-      final String deliveredTime = _getCurrentClockTime();
-
-      _order = _order.copyWith(
-        currentStage: OrderTrackingStage.delivered,
-        etaMinutesRemaining: 0,
-        etaTimeDisplay: deliveredTime,
-        etaBadgeLabel: 'Delivered',
-        stageDescription: 'Delivered safely to Gate Pillar 2 drop table. Photo proof logged.',
-        is100mBeaconActive: false,
-      );
-    });
+    if (_resolvedOrderId == null) return;
+    OrderSyncService.riderConfirmDelivered(_resolvedOrderId!);
   }
 
   void _navigateToRiderChat() {
+    if (_order == null) return;
+    if (_assignedRiderId == null && _order!.courier.name.contains('Searching')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: ThemesColors.darkCharcoal,
+          content: Text('Awaiting rider assignment before chat is enabled.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ChatWindow(
-          title: _order.courier.name,
-          subtitle: '${_order.courier.plateNumber} • ${_order.courier.vehicleType}',
-          chatRoomId: _order.orderId,
+          title: _order!.courier.name,
+          subtitle:
+          '${_order!.courier.plateNumber} • ${_order!.courier.vehicleType}',
+          chatRoomId: _order!.orderId,
           isCustomerView: true,
+        ),
+      ),
+    );
+  }
+
+  void _showDropOffProofDialog(BuildContext context) {
+    if (_order == null) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: ThemesColors.appSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Drop-Off Verification Proof',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: ThemesColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _proofPhotoUrl != null && _proofPhotoUrl!.isNotEmpty
+                    ? Image.network(
+                  _proofPhotoUrl!,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const SizedBox(
+                      height: 200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: ThemesColors.brandOrange,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 200,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.broken_image,
+                          size: 40, color: Colors.grey),
+                    ),
+                  ),
+                )
+                    : Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: ThemesColors.darkCharcoal
+                        .withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'No drop-off photo proof available yet.',
+                      style: TextStyle(
+                        color: ThemesColors.darkCharcoal,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Drop-Off: ${_order!.corridor.dropOffLandmark}',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: ThemesColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Courier: ${_order!.courier.name}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: ThemesColors.darkCharcoal.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ThemesColors.brandOrange,
+                  foregroundColor: ThemesColors.textOnPrimary,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Close Verification'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -266,22 +610,80 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeCorridor = _order.corridor.copyWith(
-      dropOffLandmark: OrderTrackingModel.defaultSubPinLandmark,
-    );
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: ThemesColors.appSurface,
+        body: Center(
+          child: CircularProgressIndicator(color: ThemesColors.brandOrange),
+        ),
+      );
+    }
 
-    // Dynamically update Step 5 milestone description with landmark
-    final updatedMilestones = _order.milestones.map((m) {
-      if (m.stageIndex == 5) {
-        return TrackingMilestoneModel(
-          stageIndex: m.stageIndex,
-          title: m.title,
-          subtitle: 'Verified with GPS drop-off photo proof at ${OrderTrackingModel.defaultSubPinLandmark}.',
-          completedTimestamp: m.completedTimestamp,
-        );
-      }
-      return m;
-    }).toList();
+    // EMPTY STATE: If customer has no active orders
+    if (_order == null) {
+      return Scaffold(
+        backgroundColor: ThemesColors.appSurface,
+        body: SafeArea(
+          child: Column(
+            children: [
+              SharedCustomerTopBar(
+                title: 'Live Order Tracking',
+                showBackButton: widget.showBackButton,
+                showPulseIndicator: false,
+                showProfileButton: true,
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.delivery_dining_outlined,
+                          size: 72,
+                          color: ThemesColors.darkCharcoal
+                              .withValues(alpha: 0.25),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Active Deliveries',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: ThemesColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CustomerShellScreen(initialIndex: 0),
+                              ),
+                                  (route) => false,
+                            );
+                          },
+                          icon: const Icon(Icons.restaurant_menu_rounded, size: 18),
+                          label: const Text('Browse Kitchen Dishes'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ThemesColors.brandOrange,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final double currentExtent =
     _sheetController.isAttached ? _sheetController.size : _minSheetExtent;
@@ -289,7 +691,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
     ((currentExtent - _minSheetExtent) / (_maxSheetExtent - _minSheetExtent))
         .clamp(0.0, 1.0);
     final bool isExpanded = expandProgress > 0.05;
-    final bool isDelivered = _order.currentStage == OrderTrackingStage.delivered;
+    final bool isDelivered = _order!.currentStage == OrderTrackingStage.delivered;
 
     return Scaffold(
       backgroundColor: ThemesColors.appSurface,
@@ -298,15 +700,15 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
           // LAYER 1: MAP VIEWPORT
           Positioned.fill(
             child: CustomerLiveTrackingMapView(
-              corridor: activeCorridor,
-              stage: _order.currentStage,
-              etaMinutesRemaining: _order.etaMinutesRemaining,
+              corridor: _order!.corridor,
+              stage: _order!.currentStage,
+              etaMinutesRemaining: _order!.etaMinutesRemaining,
               onRouteLoaded: (RouteInfo route) {
                 final int dynamicTransitMins =
                 EtaCalculator.calculateTransitMinutes(route.distanceKm);
                 setState(() {
-                  _order = _order.copyWith(
-                    corridor: _order.corridor.copyWith(
+                  _order = _order!.copyWith(
+                    corridor: _order!.corridor.copyWith(
                       distanceKm: route.distanceKm,
                       etaMinutes: dynamicTransitMins,
                     ),
@@ -316,7 +718,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
             ),
           ),
 
-          // LAYER 2: TOP BAR & 100M BEACON
+          // LAYER 2: TOP BAR, SWITCH BUTTON & BEACON
           Positioned(
             top: 0,
             left: 0,
@@ -327,20 +729,51 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  SharedCustomerTopBar(
-                    title: 'Live Order Tracking',
-                    subtitle:
-                    'Order #${_order.orderId} • ${_order.currentStage.stageBadge}',
-                    showPulseIndicator: true,
-                    showBackButton: false,
-                    showProfileButton: true,
+                  Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      SharedCustomerTopBar(
+                        title: 'Live Order Tracking',
+                        subtitle: 'Order #${_order!.orderId} • ${_order!.currentStage.stageBadge}',
+                        showPulseIndicator: !isDelivered,
+                        showBackButton: widget.showBackButton,
+                        showProfileButton: true,
+                      ),
+                      // Top Bar Order Switcher Pill
+                      Positioned(
+                        right: 64,
+                        child: TextButton.icon(
+                          onPressed: _showOrderSwitcherSheet,
+                          icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: ThemesColors.brandOrange),
+                          label: const Text(
+                            'Switch',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: ThemesColors.brandOrange,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            backgroundColor: ThemesColors.brandOrange.withValues(alpha: 0.1),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  if (_order.is100mBeaconActive && OrderTrackingModel.isProximityBeaconEnabled)
+
+                  // MULTI-ORDER SWITCHER BAR: If multiple active orders are ongoing
+                  _buildMultiOrderSwitcherBar(),
+
+                  if (_order!.is100mBeaconActive && OrderTrackingModel.isProximityBeaconEnabled)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: CustomerProximityBeaconBanner(
-                        residenceLabel: _order.residenceLabel,
-                        dropOffLandmark: activeCorridor.dropOffLandmark,
+                        residenceLabel: _order!.residenceLabel,
+                        dropOffLandmark: _order!.corridor.dropOffLandmark,
                       ),
                     ),
                 ],
@@ -360,7 +793,8 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
               return Container(
                 decoration: BoxDecoration(
                   color: ThemesColors.appSurface,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                  borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(22)),
                   border: Border.all(
                     color: ThemesColors.darkCharcoal.withValues(alpha: 0.1),
                   ),
@@ -387,7 +821,8 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                           width: 38,
                           height: 4.5,
                           decoration: BoxDecoration(
-                            color: ThemesColors.darkCharcoal.withValues(alpha: 0.22),
+                            color: ThemesColors.darkCharcoal
+                                .withValues(alpha: 0.22),
                             borderRadius: BorderRadius.circular(3),
                           ),
                         ),
@@ -396,13 +831,15 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     const SizedBox(height: 6),
 
                     CustomerEstimatedArrivalHeroCard(
-                      stage: _order.currentStage,
-                      etaTimeDisplay: _order.etaTimeDisplay,
-                      etaMinutesRemaining: _order.etaMinutesRemaining,
+                      stage: _order!.currentStage,
+                      etaTimeDisplay: _order!.etaTimeDisplay,
+                      etaMinutesRemaining: _order!.etaMinutesRemaining,
                       etaBadgeLabel: isDelivered
                           ? 'Delivered'
-                          : (_isPaused ? 'PAUSED • $_pauseReason' : _order.etaBadgeLabel),
-                      stageDescription: _order.stageDescription,
+                          : (_isPaused
+                          ? 'PAUSED • $_pauseReason'
+                          : _order!.etaBadgeLabel),
+                      stageDescription: _order!.stageDescription,
                     ),
 
                     Visibility(
@@ -415,21 +852,43 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                           children: <Widget>[
                             const SizedBox(height: 15),
 
-                            // Component 2: 5-Stage Stepper
                             CustomerStagePipelineStepper(
-                              currentStage: _order.currentStage,
-                              milestones: updatedMilestones,
+                              currentStage: _order!.currentStage,
+                              milestones: _order!.milestones,
                             ),
 
                             const SizedBox(height: 15),
 
-                            // Component 3: Rider Contact Card
                             CustomerCourierContactCard(
-                              courier: _order.courier,
+                              courier: _order!.courier,
                               onChatWithRider: _navigateToRiderChat,
                             ),
 
-                            const SizedBox(height: 30),
+                            if (isDelivered ||
+                                (_proofPhotoUrl != null &&
+                                    _proofPhotoUrl!.isNotEmpty)) ...[
+                              const SizedBox(height: 14),
+                              _buildProofActionCard(),
+                            ],
+
+                            // ESCAPE ACTION: If delivered, show "Finish & Order Again"
+                            if (isDelivered) ...[
+                              const SizedBox(height: 14),
+                              ElevatedButton.icon(
+                                onPressed: _dismissCurrentOrder,
+                                icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                                label: const Text('Finish & Order More Food'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: ThemesColors.brandOrange,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 44),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ],
+
+                            const SizedBox(height: 20),
 
                             _buildSimulationDock(),
                           ],
@@ -446,8 +905,136 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
     );
   }
 
+  /// Interactive Chip Bar allowing seamless switching between active tickets
+  Widget _buildMultiOrderSwitcherBar() {
+    if (_activeOrders.length <= 1) return const SizedBox.shrink();
+
+    return Container(
+      height: 38,
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _activeOrders.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final ord = _activeOrders[index];
+          final String id = (ord['orderID'] ?? ord['orderId'] ?? ord['docId']).toString();
+          final String rawStatus = (ord['status'] ?? ord['stage'] ?? 'Active').toString().toUpperCase();
+          final bool isCurrent = id == _resolvedOrderId;
+
+          return Material(
+            color: isCurrent ? ThemesColors.brandOrange : ThemesColors.appSurface,
+            borderRadius: BorderRadius.circular(20),
+            elevation: isCurrent ? 2 : 0,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _switchOrder(id),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isCurrent
+                        ? ThemesColors.brandOrange
+                        : ThemesColors.darkCharcoal.withValues(alpha: 0.18),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6.5,
+                      height: 6.5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isCurrent ? Colors.white : ThemesColors.brandOrange,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '#$id • $rawStatus',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: isCurrent ? Colors.white : ThemesColors.darkCharcoal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProofActionCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: ThemesColors.freshGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ThemesColors.freshGreen.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.verified_rounded,
+            color: ThemesColors.freshGreen,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Drop-Off Verification Logged',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: ThemesColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  'Photographic proof at gate pillar available',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: ThemesColors.darkCharcoal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => _showDropOffProofDialog(context),
+            style: TextButton.styleFrom(
+              backgroundColor: ThemesColors.freshGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'View Photo',
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSimulationDock() {
-    final bool isDelivered = _order.currentStage == OrderTrackingStage.delivered;
+    final bool isDelivered =
+        _order!.currentStage == OrderTrackingStage.delivered;
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -474,11 +1061,14 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: isDelivered
                       ? Colors.blue.shade100
-                      : (_isPaused ? Colors.amber.shade100 : Colors.green.shade100),
+                      : (_isPaused
+                      ? Colors.amber.shade100
+                      : Colors.green.shade100),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -507,9 +1097,11 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('1. Vendor Ready', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text('1. Vendor Ready',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 6),
@@ -521,9 +1113,11 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('2. Rider Pickup', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text('2. Rider Pickup',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 6),
@@ -535,9 +1129,11 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('3. Delivered', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text('3. Delivered',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
