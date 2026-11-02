@@ -71,7 +71,7 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
           );
         } else if (getRole == 'vendor') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+             const SnackBar(
               content: Text('Vendor portal is configured on the Vendor build.'),
               backgroundColor: ThemesColors.brandOrange,
             ),

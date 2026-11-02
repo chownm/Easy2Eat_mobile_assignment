@@ -29,6 +29,7 @@ dependencies:
   firebase_auth: ^7.0.1
   cloud_firestore: ^7.1.0
   firebase_messaging: ^17.0.1
+  firebase_storage: ^14.0.1
   translator: ^1.0.4+1
   google_sign_in: ^6.2.1
   intl: ^0.19.0
@@ -43,6 +44,13 @@ dev_dependencies:
   build_runner: ^2.4.9
   json_serializable: ^6.8.0
   test: ^1.31.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "lib/assets/images/Easy2Eat_Logo.jpg"
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true
@@ -51,4 +59,3 @@ flutter:
     - lib/core/constants/.env
     - lib/assets/images/Easy2Eat_Logo.jpg
     - lib/assets/images/googleIcon.png
-    - lib/assets/images/appleIcon.png
