@@ -33,6 +33,7 @@ dependencies:
   google_sign_in: ^6.2.1
   intl: ^0.19.0
   firebase_storage: ^14.0.1
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_test:
