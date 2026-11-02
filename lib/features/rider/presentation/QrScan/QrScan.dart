@@ -99,12 +99,13 @@ class _QrCodeScanState extends State<QrCodeScan> {
                     if (doc.exists && doc.data() != null) {
                       final String matchedId = doc.id;
 
-                      // Update order status to "on the way" upon scanning vendor QR code
+                      // Update order status to "onTheWay" upon scanning vendor QR code
                       await FirebaseFirestore.instance
                           .collection('orders')
                           .doc(matchedId)
                           .set({
-                        'status': 'on the way',
+                        'status': 'onTheWay',
+                        'stage': 'onTheWay',
                         'isPickedUp': true,
                         'pickedUpAt': FieldValue.serverTimestamp(),
                         'updatedAt': FieldValue.serverTimestamp(),
@@ -118,7 +119,7 @@ class _QrCodeScanState extends State<QrCodeScan> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'QR Code verified for $matchedId! Status updated to "on the way".',
+                              'QR Code verified for $matchedId! Status updated to "onTheWay".',
                             ),
                             backgroundColor: ThemesColors.success,
                           ),

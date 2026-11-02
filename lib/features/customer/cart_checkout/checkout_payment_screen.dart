@@ -238,10 +238,10 @@ class _CustomerCheckoutPaymentScreenState
       // 4. Resolve vendor details dynamically from cart
       final String vendorId = widget.cartItems.isNotEmpty
           ? widget.cartItems.first.merchantId
-          : 'VENDOR-001';
+          : "";
       final String vendorName = widget.cartItems.isNotEmpty
           ? widget.cartItems.first.merchantName
-          : 'C180 Kitchen Hub';
+          : "";
 
       // 5. Aggregate dynamic item instructions
       final dynamicNotes = widget.cartItems

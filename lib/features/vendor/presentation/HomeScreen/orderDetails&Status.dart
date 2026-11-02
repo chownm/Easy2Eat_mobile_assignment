@@ -44,9 +44,16 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
   /// Advance order status & automatically sync QR data to Firestore
   Future<void> _advanceOrderStatus(OrderModel order, String newPreparationStatus) async {
     try {
+      String updatedStatus = order.status;
+      if (newPreparationStatus == 'done') {
+        updatedStatus = 'readyForPickup';
+      } else if (newPreparationStatus == 'preparing') {
+        updatedStatus = 'preparing';
+      }
+
       final updatedOrder = order.copyWith(
         preparationStatus: newPreparationStatus,
-        status: newPreparationStatus == 'done' ? 'done' : order.status,
+        status: updatedStatus,
       );
 
       final qrPayload = OrderQRGenerator.generatePayload(updatedOrder);
@@ -54,6 +61,7 @@ class _OrderDetailWidgetState extends State<OrderDetailWidget> {
 
       final Map<String, dynamic> dataToStore = {
         ...updatedOrder.toJson(),
+        'stage': updatedStatus,
         'qrPayload': qrPayload,
         'qrBase64': qrBase64 ?? '',
         'updatedAt': FieldValue.serverTimestamp(),

@@ -20,6 +20,7 @@ class OrderSyncService {
       // 2. Assemble the data map by merging order.toJson() with QR specific metadata
       final Map<String, dynamic> dataToStore = {
         ...order.toJson(),
+        'stage': order.status,
         'qrPayload': qrPayload,
         'qrBase64': qrBase64Str,
         'updatedAt': FieldValue.serverTimestamp(),
