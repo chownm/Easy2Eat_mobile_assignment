@@ -46,9 +46,9 @@ class CustomerProfileModel {
       phoneNumber: data['phoneNumber'] ?? data['phone'] ?? '',
       profilePhotoUrl: data['profilePhotoUrl'] ?? data['photoUrl'],
       defaultSubPinLandmark:
-      data['defaultSubPinLandmark'] ?? 'Gate Pillar 2 (Table)',
+      data['defaultSubPinLandmark'] ?? data['subPin'] ?? 'Gate Pillar 2 (Table)',
       defaultDeliveryAddress:
-      data['defaultDeliveryAddress'] ?? 'Cheras Traders Square • Block B',
+      data['defaultDeliveryAddress'] ?? data['address'] ?? 'Cheras Traders Square • Block B',
       preferredLanguage: data['preferredLanguage'] ?? 'en',
       proximityBeaconEnabled: data['proximityBeaconEnabled'] ?? true,
       pushNotificationsEnabled: data['pushNotificationsEnabled'] ?? true,

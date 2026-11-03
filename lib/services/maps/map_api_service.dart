@@ -44,7 +44,7 @@ class MapApiService {
     if (address.trim().isEmpty || geoapifyApiKey.isEmpty) return null;
 
     try {
-      final GeoapifyResponse response = await _client.searchAddress(address, geoapifyApiKey);
+      final GeoapifyResponse response = await _client.geocodeAddress(address, geoapifyApiKey);
       final features = response.features ?? [];
       if (features.isNotEmpty) {
         final coords = features.first.geometry?.coordinates;

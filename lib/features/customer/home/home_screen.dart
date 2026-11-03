@@ -37,7 +37,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           children: <Widget>[
             // 1. Top Bar
             const SharedCustomerTopBar(
-              title: 'Easy2Eat • C180 / Traders Sq',
+              title: 'Easy2Eat',
               subtitle: 'Hyper-Local <1km Unstacked Dispatch Active',
               showPulseIndicator: true,
               showProfileButton: true,

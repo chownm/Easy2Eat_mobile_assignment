@@ -54,7 +54,8 @@ enum OrderTrackingStage {
 class CorridorRouteModel {
   final String merchantName;
   final String merchantHub;
-  final String dropOffLandmark;
+  final String dropOffLandmark; // Sub-pin for delivery (e.g. Lobby Guardhouse)
+  final String residenceLabel; // Main Street address used for geocoding
   final String destinationHub;
   final double distanceKm;
   final int etaMinutes;
@@ -64,6 +65,7 @@ class CorridorRouteModel {
     required this.merchantName,
     required this.merchantHub,
     required this.dropOffLandmark,
+    required this.residenceLabel,
     required this.destinationHub,
     required this.distanceKm,
     required this.etaMinutes,
@@ -74,6 +76,7 @@ class CorridorRouteModel {
     String? merchantName,
     String? merchantHub,
     String? dropOffLandmark,
+    String? residenceLabel,
     String? destinationHub,
     double? distanceKm,
     int? etaMinutes,
@@ -83,6 +86,7 @@ class CorridorRouteModel {
       merchantName: merchantName ?? this.merchantName,
       merchantHub: merchantHub ?? this.merchantHub,
       dropOffLandmark: dropOffLandmark ?? this.dropOffLandmark,
+      residenceLabel: residenceLabel ?? this.residenceLabel,
       destinationHub: destinationHub ?? this.destinationHub,
       distanceKm: distanceKm ?? this.distanceKm,
       etaMinutes: etaMinutes ?? this.etaMinutes,
@@ -96,7 +100,8 @@ class CorridorRouteModel {
     return CorridorRouteModel(
       merchantName: data['vendorName'] ?? data['merchantName'] ?? 'Campus Merchant',
       merchantHub: (data['location'] ?? data['pickupLocation'] ?? 'Merchant Hub').toString().replaceAll('Pickup: ', ''),
-      dropOffLandmark: fullDrop.isNotEmpty ? fullDrop : OrderTrackingModel.defaultSubPinLandmark,
+      dropOffLandmark: data['subPin'] ?? (fullDrop.isNotEmpty ? fullDrop : OrderTrackingModel.defaultSubPinLandmark),
+      residenceLabel: data['deliveryAddress'] ?? data['dropOffLocation'] ?? 'Cheras Traders Square • Block B',
       destinationHub: data['destinationHub'] ?? 'Cheras Traders Square',
       distanceKm: (data['distanceKm'] as num?)?.toDouble() ?? 0.6,
       etaMinutes: (data['etaMinutes'] as num?)?.toInt() ?? 8,
@@ -183,7 +188,7 @@ class DropOffProofModel {
           ? (data['deliveredAt'] as Timestamp).toDate().toString().split('.').first
           : 'Verified at drop-off',
       gpsAccuracyTag: 'GPS Verified <5m',
-      subPinLandmark: data['deliveryAddress'] ?? OrderTrackingModel.defaultSubPinLandmark,
+      subPinLandmark: data['subPin'] ?? data['deliveryAddress'] ?? OrderTrackingModel.defaultSubPinLandmark,
       courierHandoffName: data['riderName'] ?? 'Assigned Courier',
       resolutionStatus: 'Direct Unstacked Delivered',
       cloudPhotoUrl: data['proofUrl'] ?? data['proofPhotoUrl'] ?? data['dropOffProofPhotoUrl'],
@@ -286,6 +291,7 @@ class OrderTrackingModel {
         merchantName: 'Loading merchant...',
         merchantHub: 'Campus Hub',
         dropOffLandmark: defaultSubPinLandmark,
+        residenceLabel: 'Cheras Traders Square • Block B',
         destinationHub: 'Campus Area',
         distanceKm: 0.6,
         etaMinutes: 8,

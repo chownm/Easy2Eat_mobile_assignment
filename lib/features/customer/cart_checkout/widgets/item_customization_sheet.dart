@@ -232,9 +232,9 @@ class _ItemCustomizationSheetState extends State<ItemCustomizationSheet> {
                 CartService.addItem(
                   CartItemModel(
                     id: widget.merchant.id,
-                    merchantId: 'VENDOR-001',
-                    merchantName: widget.merchant.hubRouteLabel.isNotEmpty
-                        ? widget.merchant.hubRouteLabel
+                    merchantId: widget.merchant.vendorId.isNotEmpty ? widget.merchant.vendorId : 'VENDOR-001',
+                    merchantName: widget.merchant.title.isNotEmpty
+                        ? widget.merchant.title
                         : 'Campus Cafeteria',
                     title: widget.merchant.title,
                     dualLangSubtitle: widget.merchant.dualLangSubtitle,

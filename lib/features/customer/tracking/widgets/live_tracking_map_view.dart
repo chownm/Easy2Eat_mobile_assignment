@@ -7,6 +7,7 @@ import 'package:easy2eat/services/maps/map_api_service.dart';
 
 class CustomerLiveTrackingMapView extends StatefulWidget {
   final CorridorRouteModel corridor;
+  final String deliveryAddress;
   final OrderTrackingStage stage;
   final int etaMinutesRemaining;
   final ValueChanged<RouteInfo>? onRouteLoaded;
@@ -14,6 +15,7 @@ class CustomerLiveTrackingMapView extends StatefulWidget {
   const CustomerLiveTrackingMapView({
     super.key,
     required this.corridor,
+    required this.deliveryAddress,
     required this.stage,
     this.etaMinutesRemaining = 4, // Default fallback
     this.onRouteLoaded,
@@ -28,9 +30,9 @@ class _CustomerLiveTrackingMapViewState
     extends State<CustomerLiveTrackingMapView> {
   final MapController _mapController = MapController();
 
-  // Coordinates: Point A (Merchant: Bai Wei C180) -> Point B (Gate Pillar 2 Traders Sq)
-  static const LatLng _merchantCoords = LatLng(3.0398, 101.7635);
-  static const LatLng _customerCoords = LatLng(3.0365, 101.7665);
+  // Coordinates: Geocoded from realtime fields (Fallback to defaults if offline)
+  LatLng _merchantCoords = const LatLng(3.0398, 101.7635);
+  LatLng _customerCoords = const LatLng(3.0365, 101.7665);
   LatLng _riderCoords = const LatLng(3.0398, 101.7635); // Starts at merchants
 
   List<LatLng> _routePoints = <LatLng>[];
@@ -94,6 +96,14 @@ class _CustomerLiveTrackingMapViewState
     setState(() => _isLoadingRoute = true);
 
     try {
+      // 1. Geocode dynamic locations using full context for better accuracy
+      final vendorLatLng = await MapApiService.getCoordinatesFromAddress(widget.corridor.merchantHub);
+      final customerLatLng = await MapApiService.getCoordinatesFromAddress(widget.deliveryAddress);
+      
+      if (vendorLatLng != null) _merchantCoords = vendorLatLng;
+      if (customerLatLng != null) _customerCoords = customerLatLng;
+
+      // 2. Fetch Routing Polylines
       final RouteInfo? routeInfo = await MapApiService.getDeliveryRoute(
         startLat: _merchantCoords.latitude,
         startLng: _merchantCoords.longitude,
@@ -111,6 +121,7 @@ class _CustomerLiveTrackingMapViewState
         });
 
         _updateRiderPosition();
+        _recenterMap();
         // Notify parent to sync actual distance and ETA
         widget.onRouteLoaded?.call(routeInfo);
       } else {
@@ -125,22 +136,30 @@ class _CustomerLiveTrackingMapViewState
   void _setFallbackCorridorRoute() {
     if (!mounted) return;
     setState(() {
-      _routePoints = const <LatLng>[
+      _routePoints = <LatLng>[
         _merchantCoords,
-        LatLng(3.0392, 101.7640),
-        LatLng(3.0385, 101.7648),
-        LatLng(3.0375, 101.7658),
+        const LatLng(3.0392, 101.7640),
+        const LatLng(3.0385, 101.7648),
+        const LatLng(3.0375, 101.7658),
         _customerCoords,
       ];
       _initialTransitMinutes = 4;
       _isLoadingRoute = false;
     });
     _updateRiderPosition();
+    _recenterMap();
   }
 
   /// Re-centers the map view over the route corridor
   void _recenterMap() {
-    _mapController.move(const LatLng(3.0378, 101.7650), 16.5);
+    if (_routePoints.isNotEmpty) {
+      final int midIndex = _routePoints.length ~/ 2;
+      _mapController.move(_routePoints[midIndex], 15.0);
+    } else {
+      final double lat = (_merchantCoords.latitude + _customerCoords.latitude) / 2;
+      final double lng = (_merchantCoords.longitude + _customerCoords.longitude) / 2;
+      _mapController.move(LatLng(lat, lng), 15.0);
+    }
   }
 
   @override
@@ -159,12 +178,12 @@ class _CustomerLiveTrackingMapViewState
         Positioned.fill(
           child: FlutterMap(
             mapController: _mapController,
-            options: const MapOptions(
+            options: MapOptions(
               initialCenter: LatLng(3.0378, 101.7650),
-              initialZoom: 16.5,
-              minZoom: 14.0,
+              initialZoom: 15.0,
+              minZoom: 13.0,
               maxZoom: 18.5,
-              interactionOptions: InteractionOptions(
+              interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.pinchZoom |
                 InteractiveFlag.drag |
                 InteractiveFlag.doubleTapZoom,

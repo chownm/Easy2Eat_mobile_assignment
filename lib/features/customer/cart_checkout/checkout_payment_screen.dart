@@ -232,16 +232,32 @@ class _CustomerCheckoutPaymentScreenState
       final String dropOffLandmark = _subPinLandmark.isNotEmpty
           ? _subPinLandmark
           : OrderTrackingModel.defaultSubPinLandmark;
-      final String fullDeliveryAddress =
-          '$_deliveryAddress, $dropOffLandmark';
+      final String addressBase = _deliveryAddress.isNotEmpty
+          ? _deliveryAddress
+          : 'Cheras Traders Square • Block B';
+      // Pass only the primary address string to avoid confusing the Geocoder with sub-pins
+      final String fullDeliveryAddress = addressBase;
 
       // 4. Resolve vendor details dynamically from cart
       final String vendorId = widget.cartItems.isNotEmpty
           ? widget.cartItems.first.merchantId
           : "";
-      final String vendorName = widget.cartItems.isNotEmpty
+      String vendorName = widget.cartItems.isNotEmpty
           ? widget.cartItems.first.merchantName
           : "";
+      String storeLocation = 'Cheras C180 Hub'; // Fallback
+
+      if (vendorId.isNotEmpty) {
+        try {
+          final vendorDoc = await FirebaseFirestore.instance.collection('users').doc(vendorId).get();
+          if (vendorDoc.exists) {
+            vendorName = vendorDoc.data()?['fullName'] ?? vendorDoc.data()?['name'] ?? vendorName;
+            storeLocation = vendorDoc.data()?['storeLocation'] ?? storeLocation;
+          }
+        } catch (e) {
+          debugPrint("Failed to fetch vendor info: $e");
+        }
+      }
 
       // 5. Aggregate dynamic item instructions
       final dynamicNotes = widget.cartItems
@@ -268,13 +284,14 @@ class _CustomerCheckoutPaymentScreenState
         'customerPhone': _customerPhone,
         'deliveryAddress': fullDeliveryAddress,
         'dropOffLocation': 'Drop Off: $fullDeliveryAddress',
-        'location': dropOffLandmark,
+        'subPin': dropOffLandmark,
         'notes': orderNotes,
 
         // Vendor Information
         'vendorID': vendorId,
         'vendorName': vendorName,
-        'pickupLocation': 'Pickup: $vendorName, Cheras C180 Hub',
+        'location': storeLocation,
+        'pickupLocation': 'Pickup: $storeLocation',
         'orderItems': orderItemsString,
 
         // Financial Breakdown

@@ -43,6 +43,33 @@ class _MapRetrofitClient implements MapRetrofitClient {
     try {
       _value = GeoapifyResponse.fromJson(_result.data!);
     } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<GeoapifyResponse> geocodeAddress(String text, String apiKey) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{r'text': text, r'apiKey': apiKey};
+    final _headers = <String, dynamic>{};
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<GeoapifyResponse>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/geocode/search',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
+    late GeoapifyResponse _value;
+    try {
+      _value = GeoapifyResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options, response: _result);
       rethrow;
     }

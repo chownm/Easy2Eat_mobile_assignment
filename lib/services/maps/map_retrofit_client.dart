@@ -13,6 +13,12 @@ abstract class MapRetrofitClient {
     @Query("apiKey") String apiKey,
   );
 
+  @GET("/geocode/search")
+  Future<GeoapifyResponse> geocodeAddress(
+    @Query("text") String text,
+    @Query("apiKey") String apiKey,
+  );
+
   @GET("/geocode/reverse")
   Future<GeoapifyResponse> reverseGeocode(
     @Query("lat") double lat,

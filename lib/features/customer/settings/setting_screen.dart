@@ -841,7 +841,7 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                                               orderId: orderId,
                                               photoUrl: proofPhotoUrl,
                                               riderName: order['riderName'],
-                                              landmark: order['location'] ?? OrderTrackingModel.defaultSubPinLandmark,
+                                              landmark: order['subPin'] ?? order['location'] ?? OrderTrackingModel.defaultSubPinLandmark,
                                             );
                                           },
                                           icon: const Icon(

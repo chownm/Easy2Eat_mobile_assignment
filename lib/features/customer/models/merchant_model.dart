@@ -9,6 +9,7 @@ enum ProfileMenuAction {
 @immutable
 class MerchantModel {
   final String id;
+  final String vendorId;
   final String title;
   final String dualLangSubtitle;
   final String categoryTag;
@@ -25,6 +26,7 @@ class MerchantModel {
 
   const MerchantModel({
     required this.id,
+    this.vendorId = 'VENDOR-001',
     required this.title,
     required this.dualLangSubtitle,
     required this.categoryTag,
@@ -59,15 +61,16 @@ class MerchantModel {
 
     return MerchantModel(
       id: doc.id,
+      vendorId: data['vendorID'] ?? data['merchantId'] ?? data['uid'] ?? 'urX91pPzSwO5rLMuLjSSbdTh1QQ2', // Uses actual artisan restaurant
       title: name,
       dualLangSubtitle: data['description'] ??
           (stock > 0
-              ? 'C180 Food Court • $stock portions remaining'
+              ? '${data['storeLocation'] ?? 'Store'} • $stock portions remaining'
               : 'Sold out for current shift'),
       categoryTag: data['categoryTag'] ?? 'Main Kitchen',
       rating: (data['rating'] as num?)?.toDouble() ?? 4.8,
       distanceKm: (data['distanceKm'] as num?)?.toDouble() ?? 0.6,
-      hubRouteLabel: data['storeLocation'] ?? 'C180 Food Court',
+      hubRouteLabel: data['storeLocation'] ?? 'Campus Store',
       executionCostAndEta:
       'RM ${price.toStringAsFixed(2)} • 10 mins • RM 1.50 Delivery',
       operationalTags: List<String>.from(

@@ -164,6 +164,10 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
       _order = null;
       _isLoading = false;
       });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
       }
       }
     });
@@ -709,6 +713,7 @@ class _CustomerTrackingScreenState extends State<CustomerTrackingScreen> {
           Positioned.fill(
             child: CustomerLiveTrackingMapView(
               corridor: _order!.corridor,
+              deliveryAddress: _order!.residenceLabel,
               stage: _order!.currentStage,
               etaMinutesRemaining: _order!.etaMinutesRemaining,
               onRouteLoaded: (RouteInfo route) {
