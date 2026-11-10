@@ -1,6 +1,6 @@
 # easy2eat
 
-A new Flutter project.
+A Food Platform flutter project (android only for now) , involve three roles rider,vendor and customer
 
 ## Getting Started
 
